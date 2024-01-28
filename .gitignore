@@ -96,3 +96,5 @@ venv.bak/
 
 # Mypy cache
 .mypy_cache/
+
+/tor-browser
