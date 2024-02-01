@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 from typing import List, Tuple
 
@@ -11,12 +10,13 @@ from stem.control import Controller
 from tbselenium.tbdriver import TorBrowserDriver
 from tbselenium.utils import launch_tbb_tor_with_stem
 
+from src.db.broker import DbBroker
 from src.domain.domain import (AdditionalInformation, EquipmentInformation,
                                GeneralInformation, Listing, OtherInformation,
                                SafetyInformation)
-from src.exception import (IPAddressBlockedError, LabelNotGivenException,
-                           ScrapingError)
-from src.logger import logging
+from src.exception import (IPAddressBlockedException, LabelNotGivenException,
+                           ScrapingException)
+from src.logger import log_by_severity, log_detailed_error, logging
 
 
 def get_new_tor_circuit(controller):
@@ -28,7 +28,7 @@ def check_for_blocked_ip(soup: BeautifulSoup):
     img_elements = soup.find_all("img")
 
     if len(img_elements) == 0:
-        raise IPAddressBlockedError("IP address blocked")
+        raise IPAddressBlockedException("IP address blocked")
 
 
 def scrape_listing(soup: BeautifulSoup, car_id) -> Listing:
@@ -66,12 +66,8 @@ def scrape_listing(soup: BeautifulSoup, car_id) -> Listing:
     except LabelNotGivenException as e:
         raise e
     except Exception as e:
-        _, e_object, e_traceback = sys.exc_info()
-
-        e_filename = os.path.split(e_traceback.tb_frame.f_code.co_filename)[1]
-        e_line_number = e_traceback.tb_lineno
-        logging.info(f"Error in file: {e_filename}, line: {e_line_number}")
-        raise ScrapingError(str(e))
+        log_detailed_error(e, str(e))
+        raise ScrapingException(str(e))
 
 
 def scrape_general_information(soup: BeautifulSoup):
@@ -102,11 +98,6 @@ def scrape_other_information(soup: BeautifulSoup):
     other_information = OtherInformation()
 
     return other_information
-
-
-def save_listing_in_db(listing: Listing):
-    # logging.info("Successfully saved listing in database")
-    pass
 
 
 def get_listing_urls_and_ids_from_page(
@@ -192,16 +183,13 @@ if __name__ == "__main__":
                             check_for_blocked_ip(listing_page_soup)
 
                             listing = scrape_listing(listing_page_soup, car_id)
-                            save_listing_in_db(listing)
+                            DbBroker().save_listing(listing)
                             logging.info(str(listing))
-                            # time.sleep(1)
                             page_no += 1
                             no_cars_scraped_per_search_page += 1
-                        except LabelNotGivenException as e:
-                            logging.info(str(e) + " for url " + listing_url)
-                        except ScrapingError as e:
-                            logging.error(str(e) + " for url " + listing_url)
-                        except IPAddressBlockedError as e:
+                        except (ScrapingException, LabelNotGivenException) as e:
+                            log_by_severity(e, str(e) + " for url " + listing_url)
+                        except IPAddressBlockedException as e:
                             logging.warning(str(e) + " for url " + listing_url)
                             get_new_tor_circuit(controller)
                         except TimeoutException as e:
@@ -216,8 +204,6 @@ if __name__ == "__main__":
                                 two_time_failed_listing = 0
                         except ValueError as e:
                             logging.error(str(e) + " for url " + listing_url)
-                        except KeyboardInterrupt as e:
-                            raise e
                         except Exception as e:
                             logging.error(str(e) + " for url " + listing_url)
                             break
@@ -229,7 +215,7 @@ if __name__ == "__main__":
                 except ValueError as e:
                     all_pages_scraped_flag = True
                     logging.error(str(e) + " for search page " + url_search_page)
-                except IPAddressBlockedError as e:
+                except IPAddressBlockedException as e:
                     logging.warning(str(e) + " for search page " + url_search_page)
                     get_new_tor_circuit(controller)
                 except TimeoutException as e:
@@ -243,18 +229,8 @@ if __name__ == "__main__":
                     if two_time_failed_page == 2:
                         get_new_tor_circuit(controller)
                         two_time_failed_page = 0
-                # except KeyboardInterrupt:
-                #     logging.info(
-                #         f"Session finished. Total cars scraped in the session: {no_cars_scraped_total}"
-                #     )
                 except Exception as e:
-                    _, e_object, e_traceback = sys.exc_info()
-
-                    e_filename = os.path.split(e_traceback.tb_frame.f_code.co_filename)[
-                        1
-                    ]
-                    e_line_number = e_traceback.tb_lineno
-                    logging.error(f"Error in file: {e_filename}, line: {e_line_number}")
-                    logging.error(str(e) + " for search page " + url_search_page)
+                    log_detailed_error(e, str(e))
+                    raise ScrapingException(str(e))
 
     tor_process.kill()
