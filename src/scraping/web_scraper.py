@@ -1,6 +1,9 @@
+from typing import List
+
 from bs4 import BeautifulSoup
 from tbselenium.tbdriver import TorBrowserDriver
 
+from src.config import INDEX_PAGE_URL
 from src.domain.domain import (SECTION_NAMES_SRB_MAP, AdditionalInformation,
                                EquipmentInformation, GeneralInformation,
                                Listing, OtherInformation, SafetyInformation)
@@ -9,15 +12,20 @@ from src.logger import log_detailed_error, logging
 
 
 class Scraper:
-    def __init__(self, driver: TorBrowserDriver, car_id):
+    def __init__(self, driver: TorBrowserDriver):
         self.soup = create_soup(driver.page_source)
-        self.car_id = car_id
+        self.url = driver.current_url
 
     def scrape_listing(self) -> Listing:
         try:
-            listing = Listing(id=self.car_id)
+            listing = Listing()
+            listing.id = self.url.split("/")[-2]
+            listing.general_information = self._scrape_gi_and_ai("GeneralInformation")
+            listing.additional_information = self._scrape_gi_and_ai(
+                "AdditionalInformation"
+            )
 
-            listing.name = self.soup.find("h1").contents[0].get_text(strip=True)  # type: ignore
+            listing.name = self.soup.find(class_="table js-tutorial-all").find("h1").contents[0].get_text(strip=True)  # type: ignore
             listing.price = self.soup.find("span", "priceClassified").get_text(strip=True)  # type: ignore
 
             if listing.price == "Po dogovoru":
@@ -37,10 +45,6 @@ class Scraper:
             listing.location = location
             listing.images_no = self.soup.find("div", class_="js-gallery-numbers image-counter").get_text(strip=True).split("/")[1]  # type: ignore
 
-            listing.general_information = self._scrape_gi_and_ai("GeneralInformation")
-            listing.additional_information = self._scrape_gi_and_ai(
-                "AdditionalInformation"
-            )
             listing.equipment_information = self._scrape_equipment_information()
             listing.safety_information = self._scrape_safety_information()
             listing.other_information = self._scrape_other_information()
@@ -122,3 +126,12 @@ class Scraper:
 
 def create_soup(page_source: str):
     return BeautifulSoup(page_source, "lxml")
+
+
+def get_listing_urls_from_page(
+    driver: TorBrowserDriver,
+) -> List[str]:
+    soup = create_soup(driver.page_source)
+    anchors = soup.find_all("a", class_="ga-title")
+    listing_urls = [f"{INDEX_PAGE_URL}{anchor.get('href')}" for anchor in anchors]
+    return listing_urls
