@@ -6,13 +6,13 @@ from sqlalchemy.sql.sqltypes import BigInteger
 
 Base = declarative_base()
 DEFAULT_STRING_SIZE = 255
-section_names_srb = [
-    "Opšte informacije",
-    "Dodatne informacije",
-    "Sigurnost",
-    "Oprema",
-    "Stanje",
-]
+SECTION_NAMES_SRB_MAP = {
+    "GeneralInformation": "Opšte informacije",
+    "AdditionalInformation": "Dodatne informacije",
+    "SafetyInformation": "Sigurnost",
+    "EquipmentInformation": "Oprema",
+    "OtherInformation": "Stanje",
+}
 
 
 class Listing(Base):
@@ -23,7 +23,7 @@ class Listing(Base):
         "Broj oglasa": "id",
         **dict(
             zip(
-                section_names_srb,
+                SECTION_NAMES_SRB_MAP,
                 [
                     "general_information",
                     "additional_information",
@@ -92,17 +92,20 @@ class GeneralInformation(Base):
     __table_args__ = {"extend_existing": True}
     __tablename__ = "general_informations"
 
-    srb_names_to_attrs_map = {
+    SRB_NAMES_TO_ATTRS_MAP = {
         "Stanje": "condition",
         "Marka": "brand",
         "Model": "model",
-        "Kilometraža": "production_year",
+        "Godište": "production_year",
+        "Kilometraža": "kilometerage",
         "Karoserija": "body_type",
         "Gorivo": "fuel_type",
         "Kubikaža": "engine_capacity",
         "Snaga motora": "engine_power",
         "Fiksna cena": "fixed price",
         "Zamena": "trade_in",
+        "Atestiran": "certified",
+        "Kapacitet baterije": "battery_capacity",
     }
 
     id = mapped_column(
@@ -114,20 +117,23 @@ class GeneralInformation(Base):
     condition = Column(String(DEFAULT_STRING_SIZE))  # Stanje
     brand = Column(String(DEFAULT_STRING_SIZE))  # Marka
     model = Column(String(DEFAULT_STRING_SIZE))  # Model
-    production_year = Column(String(DEFAULT_STRING_SIZE))  # Kilometraža
+    production_year = Column(String(DEFAULT_STRING_SIZE))  # Godište
+    kilometerage = Column(String(DEFAULT_STRING_SIZE))  # Kilometraža
     body_type = Column(String(DEFAULT_STRING_SIZE))  # Karoserija
     fuel_type = Column(String(DEFAULT_STRING_SIZE))  # Gorivo
     engine_capacity = Column(String(DEFAULT_STRING_SIZE))  # Kubikaža
     engine_power = Column(String(DEFAULT_STRING_SIZE))  # Snaga motora
     fixed_price = Column(String(DEFAULT_STRING_SIZE))  # Fiksna cena
     trade_in = Column(String(DEFAULT_STRING_SIZE))  # Zamena
+    certified = Column(String(DEFAULT_STRING_SIZE))  # Atestiran
+    battery_capacity = Column(String(DEFAULT_STRING_SIZE))  # Kapacitet baterije
 
 
 class AdditionalInformation(Base):
     __table_args__ = {"extend_existing": True}
     __tablename__ = "additional_informations"
 
-    srb_names_to_attrs_map = {
+    SRB_NAMES_TO_ATTRS_MAP = {
         "Plivajući zamajac": "floating_flywheel",
         "Emisiona klasa motora": "engine_emission_class",
         "Pogon": "propulsion",
@@ -136,7 +142,6 @@ class AdditionalInformation(Base):
         "Broj sedišta": "seats_no",
         "Strana volana": "steering_wheel_side",
         "Klima": "air_conditioning",
-        "Kredit": "credit",
         "Zamena": "trade_in",
         "Boja": "color",
         "Materijal enterijera": "interior_material",
@@ -146,6 +151,15 @@ class AdditionalInformation(Base):
         "Vlasništvo": "ownership",
         "Oštećenje": "damage",
         "Zemlja uvoza": "import_country",
+        "Način prodaje": "sales_method",
+        "Kredit": "credit",
+        "Učešće (depozit)": "deposit",
+        "Broj rata": "installment_no",
+        "Visina rate": "installment_amount",
+        "Beskamatni kredit": "interest_free_credit",
+        "Lizing": "leasing",
+        "Gotovinska uplata": "cash_payment",
+        "Domet sa punom baterijom (km)": "range_on_full_battery_km",
     }
 
     id = mapped_column(
@@ -164,7 +178,6 @@ class AdditionalInformation(Base):
     seats_no = Column(String(DEFAULT_STRING_SIZE))  # Broj sedišta
     steering_wheel_side = Column(String(DEFAULT_STRING_SIZE))  # Strana volana
     air_conditioning = Column(String(DEFAULT_STRING_SIZE))  # Klima
-    credit = Column(String(DEFAULT_STRING_SIZE))  # Kredit
     color = Column(String(DEFAULT_STRING_SIZE))  # Boja
     interior_material = Column(String(DEFAULT_STRING_SIZE))  # Materijal enterijera
     interior_color = Column(String(DEFAULT_STRING_SIZE))  # Boja enterijera
@@ -173,6 +186,17 @@ class AdditionalInformation(Base):
     ownership = Column(String(DEFAULT_STRING_SIZE))  # Vlasništvo
     damage = Column(String(DEFAULT_STRING_SIZE))  # Oštećenje
     import_country = Column(String(DEFAULT_STRING_SIZE))  # Zemlja uvoza
+    sales_method = Column(String(DEFAULT_STRING_SIZE))  # Način prodaje
+    credit = Column(String(DEFAULT_STRING_SIZE))  # Kredit
+    deposit = Column(String(DEFAULT_STRING_SIZE))  # Učešće (depozit)
+    installment_no = Column(String(DEFAULT_STRING_SIZE))  # Broj rata
+    installment_amount = Column(String(DEFAULT_STRING_SIZE))  # Visina rate
+    interest_free_credit = Column(String(DEFAULT_STRING_SIZE))  # Beskamatni kredit
+    leasing = Column(String(DEFAULT_STRING_SIZE))  # Lizing
+    cash_payment = Column(String(DEFAULT_STRING_SIZE))  # Gotovinska uplata
+    range_on_full_battery_km = Column(
+        String(DEFAULT_STRING_SIZE)
+    )  # Domet sa punom baterijom (km)
 
 
 class SafetyInformation(Base):
