@@ -12,28 +12,13 @@ SECTION_NAMES_SRB_MAP = {
     "SafetyInformation": "Sigurnost",
     "EquipmentInformation": "Oprema",
     "OtherInformation": "Stanje",
+    "DescriptionInformation": "Opis",
 }
 
 
 class Listing(Base):
     __table_args__ = {"extend_existing": True}
     __tablename__ = "listings"
-
-    srb_names_to_attrs_map = {
-        "Broj oglasa": "id",
-        **dict(
-            zip(
-                SECTION_NAMES_SRB_MAP,
-                [
-                    "general_information",
-                    "additional_information",
-                    "safety_information",
-                    "equipment_information",
-                    "other_information",
-                ],
-            )
-        ),
-    }
 
     id = mapped_column(BigInteger, primary_key=True)
     name = Column(String(DEFAULT_STRING_SIZE))
@@ -42,6 +27,18 @@ class Listing(Base):
     listing_followers_no = Column(String(DEFAULT_STRING_SIZE))
     location = Column(String(DEFAULT_STRING_SIZE))
     images_no = Column(String(DEFAULT_STRING_SIZE))
+
+    SRB_SECTION_NAMES_TO_ATTRS_MAP = {
+        "Sigurnost": "safety",
+        "Oprema": "equipment",
+        "Stanje": "other",
+        "Opis": "description",
+    }
+
+    safety = Column(String(10_000))
+    equipment = Column(String(10_000))
+    other = Column(String(10_000))
+    description = Column(String(10_000))
 
     general_information = relationship(
         "GeneralInformation",
@@ -55,37 +52,29 @@ class Listing(Base):
         back_populates="listing",
         cascade="all, delete-orphan",
     )
-    safety_information = relationship(
-        "SafetyInformation",
-        uselist=False,
-        back_populates="listing",
-        cascade="all, delete-orphan",
-    )
-    equipment_information = relationship(
-        "EquipmentInformation",
-        uselist=False,
-        back_populates="listing",
-        cascade="all, delete-orphan",
-    )
-    other_information = relationship(
-        "OtherInformation",
-        uselist=False,
-        back_populates="listing",
-        cascade="all, delete-orphan",
-    )
 
     def __repr__(self):
-        params = ", ".join(f"{k}={v}" for k, v in todict(self).items())
+        kv_dict = todict(self)
+        excl = (
+            "_sa_adapter",
+            "_sa_instance_state",
+            "safety",
+            "general_information",
+            "additional_information",
+            "equipment",
+            "other",
+            "description",
+        )
+        for k in kv_dict.copy():
+            if k in excl:
+                kv_dict.pop(k)
+
+        params = ", ".join(f"{k}={v}" for k, v in kv_dict.items())
         return f"{self.__class__.__name__}({params})"
 
 
 def todict(obj):
-    excl = ("_sa_adapter", "_sa_instance_state")
-    return {
-        k: v
-        for k, v in vars(obj).items()
-        if not k.startswith("_") and not any(hasattr(v, a) for a in excl)
-    }
+    return {k: v for k, v in vars(obj).items() if not k.startswith("_")}
 
 
 class GeneralInformation(Base):
@@ -197,50 +186,3 @@ class AdditionalInformation(Base):
     range_on_full_battery_km = Column(
         String(DEFAULT_STRING_SIZE)
     )  # Domet sa punom baterijom (km)
-
-
-class SafetyInformation(Base):
-    __table_args__ = {"extend_existing": True}
-    __tablename__ = "safety_informations"
-
-    srb_names_to_attrs_map = {"Sigurnost": "safety"}
-
-    id = mapped_column(
-        ForeignKey("listings.id", ondelete="CASCADE", onupdate="RESTRICT"),
-        primary_key=True,
-    )
-    listing = relationship(Listing, uselist=False, back_populates="safety_information")
-
-    safety = Column(String(10_000))
-
-
-class EquipmentInformation(Base):
-    __table_args__ = {"extend_existing": True}
-    __tablename__ = "safety_informations"
-
-    srb_names_to_attrs_map = {"Oprema": "equipment"}
-
-    id = mapped_column(
-        ForeignKey("listings.id", ondelete="CASCADE", onupdate="RESTRICT"),
-        primary_key=True,
-    )
-    listing = relationship(
-        Listing, uselist=False, back_populates="equipment_information"
-    )
-
-    equipment = Column(String(10_000))
-
-
-class OtherInformation(Base):
-    __table_args__ = {"extend_existing": True}
-    __tablename__ = "safety_informations"
-
-    srb_names_to_attrs_map = {"Stanje": "other"}
-
-    id = mapped_column(
-        ForeignKey("listings.id", ondelete="CASCADE", onupdate="RESTRICT"),
-        primary_key=True,
-    )
-    listing = relationship(Listing, uselist=False, back_populates="other_information")
-
-    other = Column(String(10_000))

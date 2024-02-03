@@ -5,8 +5,7 @@ from tbselenium.tbdriver import TorBrowserDriver
 
 from src.config import INDEX_PAGE_URL
 from src.domain.domain import (SECTION_NAMES_SRB_MAP, AdditionalInformation,
-                               EquipmentInformation, GeneralInformation,
-                               Listing, OtherInformation, SafetyInformation)
+                               GeneralInformation, Listing)
 from src.exception import LabelNotGivenException, ScrapingException
 from src.logger import log_detailed_error, logging
 
@@ -20,9 +19,11 @@ class Scraper:
         try:
             listing = Listing()
             listing.id = self.url.split("/")[-2]
-            listing.general_information = self._scrape_gi_and_ai("GeneralInformation")
-            listing.additional_information = self._scrape_gi_and_ai(
-                "AdditionalInformation"
+            listing.general_information = self._scrape_kv_information(
+                GeneralInformation
+            )
+            listing.additional_information = self._scrape_kv_information(
+                AdditionalInformation
             )
 
             listing.name = self.soup.find(class_="table js-tutorial-all").find("h1").contents[0].get_text(strip=True)  # type: ignore
@@ -45,9 +46,10 @@ class Scraper:
             listing.location = location
             listing.images_no = self.soup.find("div", class_="js-gallery-numbers image-counter").get_text(strip=True).split("/")[1]  # type: ignore
 
-            listing.equipment_information = self._scrape_equipment_information()
-            listing.safety_information = self._scrape_safety_information()
-            listing.other_information = self._scrape_other_information()
+            listing.safety = self._scrape_value_information("SafetyInformation")
+            listing.equipment = self._scrape_value_information("EquipmentInformation")
+            listing.other = self._scrape_value_information("OtherInformation")
+            listing.description = self._scrape_description()
 
             # logging.info("Successfully scraped listing")
             return listing
@@ -57,12 +59,9 @@ class Scraper:
             log_detailed_error(e, str(e))
             raise ScrapingException(str(e))
 
-    def _scrape_gi_and_ai(self, class_name: str):
-        domain_instance = None
-        if class_name == "GeneralInformation":
-            domain_instance = GeneralInformation()
-        elif class_name == "AdditionalInformation":
-            domain_instance = AdditionalInformation()
+    def _scrape_kv_information(self, class_type: type) -> object:
+        domain_instance = class_type()
+        class_name = type(domain_instance).__name__
 
         h2s = self.soup.find_all("h2", class_="classified-title")
         main_h2 = next(
@@ -97,32 +96,49 @@ class Scraper:
                     property_in_srb_txt
                 ]
 
-                # if class_name == "AdditionalInformation":
-                #     logging.info(
-                #         f"{property_in_srb_txt} -> {attribute_name} -> {value_txt}"
-                #     )
-
                 domain_instance.__setattr__(attribute_name, value_txt)
             except Exception as e:
                 logging.error(f"{str(e)}")
 
         return domain_instance
 
-    def _scrape_equipment_information(self):
-        equipment_information = EquipmentInformation()
+    def _scrape_value_information(self, section_name: str) -> str:
+        section_name_srb = SECTION_NAMES_SRB_MAP[section_name]
 
-        return equipment_information
+        h2s = self.soup.find_all("h2", class_="classified-title")
+        property_values_str = ""
 
-    def _scrape_safety_information(self):
-        safety_information = SafetyInformation()
+        try:
+            main_h2 = next(
+                (h2 for h2 in h2s if h2.get_text(strip=True) == section_name_srb),
+                None,
+            )
+            main_div = main_h2.find_next_sibling("div")
 
-        return safety_information
+            divs_to_iterate = main_div.find_all(
+                name="div",
+                class_="uk-width-medium-1-4 uk-width-1-2 uk-margin-small-bottom",
+            )
+            property_values_list = [
+                div_el.get_text(strip=True) for div_el in divs_to_iterate
+            ]
+            property_values_str = ",".join(property_values_list)
 
-    def _scrape_other_information(self):
-        other_information = OtherInformation()
+        except Exception as e:
+            pass
 
-        return other_information
+        return property_values_str
 
+    def _scrape_description(self) -> str:
+        description = ""
+
+        try:
+            description_elements = self.soup.find("div", class_="description-wrapper").contents
+            description_texts = [el.get_text(strip=True, separator="") for el in description_elements if el.name != 'br']
+            description = "\n".join(description_texts)
+        except Exception as e:
+            pass
+        return description
 
 def create_soup(page_source: str):
     return BeautifulSoup(page_source, "lxml")

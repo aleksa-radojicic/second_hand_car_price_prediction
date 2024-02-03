@@ -1,6 +1,7 @@
 import multiprocessing
 import tempfile
 import time
+from multiprocessing.sharedctypes import SynchronizedBase
 
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
@@ -18,19 +19,24 @@ BASE_URL_SP = (
 )
 
 
-def scraper_process(options, SOCKSPort, cars_scraped_total_no):
+def scraper_process(
+    options: FirefoxOptions,
+    SOCKSPort: int,
+    start_sp_no: int,
+    sp_incrementer: int,
+    cars_scraped_total_no: SynchronizedBase,
+):
     torcc = {
         "ControlPort": str(SOCKSPort + 1),
         "SOCKSPort": str(SOCKSPort),
         "DataDirectory": tempfile.mkdtemp(),
     }
     finished_flag = False
-    page_no = 1
     url_sp = ""
 
     with TorManager(options, torcc).manage() as tor_manager:
         while not finished_flag:
-            url_sp = BASE_URL_SP(page_no)
+            url_sp = BASE_URL_SP(start_sp_no)
             exception_msg_sp = lambda e: f"{str(e)} for sp {url_sp}"
             try:
                 tor_manager.load_url(url_sp, TorManagerConfig.URL_SP_LOAD_TIMEOUT)
@@ -58,7 +64,7 @@ def scraper_process(options, SOCKSPort, cars_scraped_total_no):
                     except Exception as e:
                         logging.error(exception_msg_listing(e))
                         break
-                page_no += 1
+                start_sp_no += sp_incrementer
                 logging.info(f"Scraping from sp {url_sp} completed.")
                 logging.info(f"Cars on sp scraped: {cars_scraped_per_sp_no}.")
             except IPAddressBlockedException as e:
@@ -73,14 +79,15 @@ def scraper_process(options, SOCKSPort, cars_scraped_total_no):
 
 def print_total_cars_scraped(processes, cars_scraped_total_no):
     while any(process.is_alive() for process in processes):
+        time.sleep(60)
         with cars_scraped_total_no.get_lock():
             # logging.info(f"Total cars scraped: {cars_scraped_total_no.value}")
             print(f"Total cars scraped: {cars_scraped_total_no.value}")
-        time.sleep(60)
 
 
 def main():
     SOCKSPorts = [9250, 9350, 9450]
+    process_no = len(SOCKSPorts)
 
     TorManagerConfig.HEADLESS_MODE = False
 
@@ -91,9 +98,10 @@ def main():
     cars_scraped_total_no = multiprocessing.Value("i", 0)
 
     processes = []
-    for SOCKSPort in SOCKSPorts:
+    for start_sp_no, SOCKSPort in enumerate(SOCKSPorts, start=1):
         process = multiprocessing.Process(
-            target=scraper_process, args=(options, SOCKSPort, cars_scraped_total_no)
+            target=scraper_process,
+            args=(options, SOCKSPort, start_sp_no, process_no, cars_scraped_total_no),
         )
         processes.append(process)
         process.start()
