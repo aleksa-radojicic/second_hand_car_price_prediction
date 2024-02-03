@@ -20,26 +20,29 @@ class TorManagerConfig:
     TBB_PATH = os.path.join(PROJECT_DIR, "tor-browser")
     TOR_CONTROL_PORT = 9251
     TOR_CIRCUIT_WAIT_TIME = 10
-    URL_LISTING_LOAD_TIMEOUT = 11
+    URL_LISTING_LOAD_TIMEOUT = 9
     URL_SP_LOAD_TIMEOUT = 15
     HEADLESS_MODE = True
 
 
 class TorManager:
-    def __init__(self):
+    def __init__(self, options, torcc):
         self.tor_process: subprocess.Popen
         self.driver: TorBrowserDriver
         self.controller: Controller
+        self.options = options
+        self.torcc = torcc
 
     @contextmanager
-    def manage_tor_browser(self):
-        self.tor_process = launch_tbb_tor_with_stem(TorManagerConfig.TBB_PATH)
+    def manage(self):
+        self.tor_process = launch_tbb_tor_with_stem(TorManagerConfig.TBB_PATH, torrc=self.torcc)
 
         try:
             with TorBrowserDriver(
                 TorManagerConfig.TBB_PATH,
                 tor_cfg=cm.USE_STEM,
                 headless=TorManagerConfig.HEADLESS_MODE,
+                options=self.options
             ) as self.driver:
                 with Controller.from_port(port=TorManagerConfig.TOR_CONTROL_PORT) as self.controller:  # type: ignore
                     self.controller.authenticate()

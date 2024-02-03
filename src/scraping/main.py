@@ -1,4 +1,9 @@
+import multiprocessing
+import tempfile
+import time
+
 from selenium.common.exceptions import WebDriverException
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
 from src.config import INDEX_PAGE_URL
 from src.db.broker import DbBroker
@@ -13,13 +18,17 @@ BASE_URL_SP = (
 )
 
 
-def main():
+def scraper_process(options, SOCKSPort, cars_scraped_total_no):
+    torcc = {
+        "ControlPort": str(SOCKSPort + 1),
+        "SOCKSPort": str(SOCKSPort),
+        "DataDirectory": tempfile.mkdtemp(),
+    }
     finished_flag = False
     page_no = 1
     url_sp = ""
-    cars_scraped_total_no = 0
 
-    with TorManager().manage_tor_browser() as tor_manager:
+    with TorManager(options, torcc).manage() as tor_manager:
         while not finished_flag:
             url_sp = BASE_URL_SP(page_no)
             exception_msg_sp = lambda e: f"{str(e)} for sp {url_sp}"
@@ -39,6 +48,8 @@ def main():
                         listing = Scraper(tor_manager.driver).scrape_listing()
                         DbBroker().save_listing(listing)
                         cars_scraped_per_sp_no += 1
+                        with cars_scraped_total_no.get_lock():
+                            cars_scraped_total_no.value += 1
                     except (ScrapingException, LabelNotGivenException) as e:
                         log_by_severity(e, exception_msg_listing(e))
                     except IPAddressBlockedException as e:
@@ -47,19 +58,47 @@ def main():
                     except Exception as e:
                         logging.error(exception_msg_listing(e))
                         break
-                cars_scraped_total_no += cars_scraped_per_sp_no
                 page_no += 1
                 logging.info(f"Scraping from sp {url_sp} completed.")
                 logging.info(f"Cars on sp scraped: {cars_scraped_per_sp_no}.")
-                logging.info(f"Total cars scraped: {cars_scraped_total_no}")
             except IPAddressBlockedException as e:
                 logging.warning(exception_msg_sp(e))
                 tor_manager.get_new_tor_circuit()
-            except (ConnectionError, WebDriverException) as e:
+            except (ConnectionError, WebDriverException, OSError) as e:
                 finished_flag = True
                 logging.warning(exception_msg_sp(e))
             except Exception as e:
                 log_detailed_error(e, exception_msg_sp(e))
+
+
+def print_total_cars_scraped(processes, cars_scraped_total_no):
+    while any(process.is_alive() for process in processes):
+        with cars_scraped_total_no.get_lock():
+            # logging.info(f"Total cars scraped: {cars_scraped_total_no.value}")
+            print(f"Total cars scraped: {cars_scraped_total_no.value}")
+        time.sleep(60)
+
+
+def main():
+    SOCKSPorts = [9250, 9350, 9450]
+
+    TorManagerConfig.HEADLESS_MODE = False
+
+    options = FirefoxOptions()
+    options.set_preference("permissions.default.image", 2)
+    options.set_preference("permissions.default.stylesheet", 2)
+
+    cars_scraped_total_no = multiprocessing.Value("i", 0)
+
+    processes = []
+    for SOCKSPort in SOCKSPorts:
+        process = multiprocessing.Process(
+            target=scraper_process, args=(options, SOCKSPort, cars_scraped_total_no)
+        )
+        processes.append(process)
+        process.start()
+
+    print_total_cars_scraped(processes, cars_scraped_total_no)
 
 
 if __name__ == "__main__":
