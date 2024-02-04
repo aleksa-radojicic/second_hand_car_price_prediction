@@ -2,43 +2,29 @@ from sqlalchemy import Column, String
 from sqlalchemy.orm import mapped_column, relationship
 from sqlalchemy.orm.decl_api import declarative_base
 from sqlalchemy.sql.schema import ForeignKey
-from sqlalchemy.sql.sqltypes import BigInteger
+from sqlalchemy.sql.sqltypes import BigInteger, Text
 
 Base = declarative_base()
-DEFAULT_STRING_SIZE = 255
-SECTION_NAMES_SRB_MAP = {
-    "GeneralInformation": "Opšte informacije",
-    "AdditionalInformation": "Dodatne informacije",
-    "SafetyInformation": "Sigurnost",
-    "EquipmentInformation": "Oprema",
-    "OtherInformation": "Stanje",
-    "DescriptionInformation": "Opis",
-}
+DEF_STR_SIZE = 255
+DSS = DEF_STR_SIZE  # Alias
 
 
 class Listing(Base):
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = {"extend_existing": True, "comment": "Oglas"}
     __tablename__ = "listings"
 
-    id = mapped_column(BigInteger, primary_key=True)
-    name = Column(String(DEFAULT_STRING_SIZE))
-    short_url = Column(String(2 * DEFAULT_STRING_SIZE), default=f"{id}/{name}")
-    price = Column(String(DEFAULT_STRING_SIZE))
-    listing_followers_no = Column(String(DEFAULT_STRING_SIZE))
-    location = Column(String(DEFAULT_STRING_SIZE))
-    images_no = Column(String(DEFAULT_STRING_SIZE))
+    id = mapped_column(BigInteger, primary_key=True, comment="Broj oglasa")
+    name = Column(String(DSS))
+    short_url = Column(String(2 * DSS))
+    price = Column(String(DSS))
+    listing_followers_no = Column(String(DSS))
+    location = Column(String(DSS))
+    images_no = Column(String(DSS))
 
-    SRB_SECTION_NAMES_TO_ATTRS_MAP = {
-        "Sigurnost": "safety",
-        "Oprema": "equipment",
-        "Stanje": "other",
-        "Opis": "description",
-    }
-
-    safety = Column(String(10_000))
-    equipment = Column(String(10_000))
-    other = Column(String(10_000))
-    description = Column(String(10_000))
+    safety = Column(Text, comment="Sigurnost")
+    equipment = Column(Text, comment="Oprema")
+    other = Column(Text, comment="Stanje")
+    description = Column(Text, comment="Opis")
 
     general_information = relationship(
         "GeneralInformation",
@@ -53,14 +39,21 @@ class Listing(Base):
         cascade="all, delete-orphan",
     )
 
+    SRB_SECTION_NAMES_TO_ATTRS_MAP = {
+        safety.comment: "safety",
+        equipment.comment: "equipment",
+        other.comment: "other",
+        description.comment: "description",
+    }
+
     def __repr__(self):
         kv_dict = todict(self)
         excl = (
             "_sa_adapter",
             "_sa_instance_state",
-            "safety",
             "general_information",
             "additional_information",
+            "safety",
             "equipment",
             "other",
             "description",
@@ -78,111 +71,110 @@ def todict(obj):
 
 
 class GeneralInformation(Base):
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = {"extend_existing": True, "comment": "Opšte informacije"}
     __tablename__ = "general_informations"
 
-    SRB_NAMES_TO_ATTRS_MAP = {
-        "Stanje": "condition",
-        "Marka": "brand",
-        "Model": "model",
-        "Godište": "production_year",
-        "Kilometraža": "kilometerage",
-        "Karoserija": "body_type",
-        "Gorivo": "fuel_type",
-        "Kubikaža": "engine_capacity",
-        "Snaga motora": "engine_power",
-        "Fiksna cena": "fixed price",
-        "Zamena": "trade_in",
-        "Atestiran": "certified",
-        "Kapacitet baterije": "battery_capacity",
-    }
-
     id = mapped_column(
-        ForeignKey("listings.id", ondelete="CASCADE", onupdate="RESTRICT"),
+        ForeignKey("listings.id", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
     listing = relationship(Listing, uselist=False, back_populates="general_information")
 
-    condition = Column(String(DEFAULT_STRING_SIZE))  # Stanje
-    brand = Column(String(DEFAULT_STRING_SIZE))  # Marka
-    model = Column(String(DEFAULT_STRING_SIZE))  # Model
-    production_year = Column(String(DEFAULT_STRING_SIZE))  # Godište
-    kilometerage = Column(String(DEFAULT_STRING_SIZE))  # Kilometraža
-    body_type = Column(String(DEFAULT_STRING_SIZE))  # Karoserija
-    fuel_type = Column(String(DEFAULT_STRING_SIZE))  # Gorivo
-    engine_capacity = Column(String(DEFAULT_STRING_SIZE))  # Kubikaža
-    engine_power = Column(String(DEFAULT_STRING_SIZE))  # Snaga motora
-    fixed_price = Column(String(DEFAULT_STRING_SIZE))  # Fiksna cena
-    trade_in = Column(String(DEFAULT_STRING_SIZE))  # Zamena
-    certified = Column(String(DEFAULT_STRING_SIZE))  # Atestiran
-    battery_capacity = Column(String(DEFAULT_STRING_SIZE))  # Kapacitet baterije
+    condition = Column(String(DSS), comment="Stanje")
+    brand = Column(String(DSS), comment="Marka")
+    model = Column(String(DSS), comment="Model")
+    production_year = Column(String(DSS), comment="Godište")
+    kilometerage = Column(String(DSS), comment="Kilometraža")
+    body_type = Column(String(DSS), comment="Karoserija")
+    fuel_type = Column(String(DSS), comment="Gorivo")
+    engine_capacity = Column(String(DSS), comment="Kubikaža")
+    engine_power = Column(String(DSS), comment="Snaga motora")
+    fixed_price = Column(String(DSS), comment="Fiksna cena")
+    trade_in = Column(String(DSS), comment="Zamena")
+    certified = Column(String(DSS), comment="Atestiran")
+    battery_capacity = Column(String(DSS), comment="Kapacitet baterije")
+
+    SRB_NAMES_TO_ATTRS_MAP = {
+        condition.comment: "condition",
+        brand.comment: "brand",
+        model.comment: "model",
+        production_year.comment: "production_year",
+        kilometerage.comment: "kilometerage",
+        body_type.comment: "body_type",
+        fuel_type.comment: "fuel_type",
+        engine_capacity.comment: "engine_capacity",
+        engine_power.comment: "engine_power",
+        fixed_price.comment: "fixed price",
+        trade_in.comment: "trade_in",
+        certified.comment: "certified",
+        battery_capacity.comment: "battery_capacity",
+    }
 
 
 class AdditionalInformation(Base):
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = {"extend_existing": True, "comment": "Dodatne informacije"}
     __tablename__ = "additional_informations"
 
-    SRB_NAMES_TO_ATTRS_MAP = {
-        "Plivajući zamajac": "floating_flywheel",
-        "Emisiona klasa motora": "engine_emission_class",
-        "Pogon": "propulsion",
-        "Menjač": "gearbox_type",
-        "Broj vrata": "doors_no",
-        "Broj sedišta": "seats_no",
-        "Strana volana": "steering_wheel_side",
-        "Klima": "air_conditioning",
-        "Zamena": "trade_in",
-        "Boja": "color",
-        "Materijal enterijera": "interior_material",
-        "Boja enterijera": "interior_color",
-        "Registrovan do": "registered_until",
-        "Poreklo vozila": "vehicle_origin",
-        "Vlasništvo": "ownership",
-        "Oštećenje": "damage",
-        "Zemlja uvoza": "import_country",
-        "Način prodaje": "sales_method",
-        "Kredit": "credit",
-        "Učešće (depozit)": "deposit",
-        "Broj rata": "installment_no",
-        "Visina rate": "installment_amount",
-        "Beskamatni kredit": "interest_free_credit",
-        "Lizing": "leasing",
-        "Gotovinska uplata": "cash_payment",
-        "Domet sa punom baterijom (km)": "range_on_full_battery_km",
-    }
-
     id = mapped_column(
-        ForeignKey("listings.id", ondelete="CASCADE", onupdate="RESTRICT"),
+        ForeignKey("listings.id", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
     listing = relationship(
         Listing, uselist=False, back_populates="additional_information"
     )
 
-    floating_flywheel = Column(String(DEFAULT_STRING_SIZE))  # Plivajući zamajac
-    engine_emission_class = Column(String(DEFAULT_STRING_SIZE))  # Emisiona klasa motora
-    propulsion = Column(String(DEFAULT_STRING_SIZE))  # Pogon
-    gearbox_type = Column(String(DEFAULT_STRING_SIZE))  # Menjač
-    doors_no = Column(String(DEFAULT_STRING_SIZE))  # Broj vrata
-    seats_no = Column(String(DEFAULT_STRING_SIZE))  # Broj sedišta
-    steering_wheel_side = Column(String(DEFAULT_STRING_SIZE))  # Strana volana
-    air_conditioning = Column(String(DEFAULT_STRING_SIZE))  # Klima
-    color = Column(String(DEFAULT_STRING_SIZE))  # Boja
-    interior_material = Column(String(DEFAULT_STRING_SIZE))  # Materijal enterijera
-    interior_color = Column(String(DEFAULT_STRING_SIZE))  # Boja enterijera
-    registered_until = Column(String(DEFAULT_STRING_SIZE))  # Registrovan do
-    vehicle_origin = Column(String(DEFAULT_STRING_SIZE))  # Poreklo vozila
-    ownership = Column(String(DEFAULT_STRING_SIZE))  # Vlasništvo
-    damage = Column(String(DEFAULT_STRING_SIZE))  # Oštećenje
-    import_country = Column(String(DEFAULT_STRING_SIZE))  # Zemlja uvoza
-    sales_method = Column(String(DEFAULT_STRING_SIZE))  # Način prodaje
-    credit = Column(String(DEFAULT_STRING_SIZE))  # Kredit
-    deposit = Column(String(DEFAULT_STRING_SIZE))  # Učešće (depozit)
-    installment_no = Column(String(DEFAULT_STRING_SIZE))  # Broj rata
-    installment_amount = Column(String(DEFAULT_STRING_SIZE))  # Visina rate
-    interest_free_credit = Column(String(DEFAULT_STRING_SIZE))  # Beskamatni kredit
-    leasing = Column(String(DEFAULT_STRING_SIZE))  # Lizing
-    cash_payment = Column(String(DEFAULT_STRING_SIZE))  # Gotovinska uplata
+    floating_flywheel = Column(String(DSS), comment="Plivajući zamajac")
+    engine_emission_class = Column(String(DSS), comment="Emisiona klasa motora")
+    propulsion = Column(String(DSS), comment="Pogon")
+    gearbox_type = Column(String(DSS), comment="Menjač")
+    doors_no = Column(String(DSS), comment="Broj vrata")
+    seats_no = Column(String(DSS), comment="Broj sedišta")
+    steering_wheel_side = Column(String(DSS), comment="Strana volana")
+    air_conditioning = Column(String(DSS), comment="Klima")
+    color = Column(String(DSS), comment="Boja")
+    interior_material = Column(String(DSS), comment="Materijal enterijera")
+    interior_color = Column(String(DSS), comment="Boja enterijera")
+    registered_until = Column(String(DSS), comment="Registrovan do")
+    vehicle_origin = Column(String(DSS), comment="Poreklo vozila")
+    ownership = Column(String(DSS), comment="Vlasništvo")
+    damage = Column(String(DSS), comment="Oštećenje")
+    import_country = Column(String(DSS), comment="Zemlja uvoza")
+    sales_method = Column(String(DSS), comment="Način prodaje")
+    credit = Column(String(DSS), comment="Kredit")
+    deposit = Column(String(DSS), comment="Učešće (depozit)")
+    installment_no = Column(String(DSS), comment="Broj rata")
+    installment_amount = Column(String(DSS), comment="Visina rate")
+    interest_free_credit = Column(String(DSS), comment="Beskamatni kredit")
+    leasing = Column(String(DSS), comment="Lizing")
+    cash_payment = Column(String(DSS), comment="Gotovinska uplata")
     range_on_full_battery_km = Column(
-        String(DEFAULT_STRING_SIZE)
-    )  # Domet sa punom baterijom (km)
+        String(DSS), comment="Domet sa punom baterijom (km)"
+    )
+
+    SRB_NAMES_TO_ATTRS_MAP = {
+        floating_flywheel.comment: "floating_flywheel",
+        engine_emission_class.comment: "engine_emission_class",
+        propulsion.comment: "propulsion",
+        gearbox_type.comment: "gearbox_type",
+        doors_no.comment: "doors_no",
+        seats_no.comment: "seats_no",
+        steering_wheel_side.comment: "steering_wheel_side",
+        air_conditioning.comment: "air_conditioning",
+        color.comment: "color",
+        interior_material.comment: "interior_material",
+        interior_color.comment: "interior_color",
+        registered_until.comment: "registered_until",
+        vehicle_origin.comment: "vehicle_origin",
+        ownership.comment: "ownership",
+        damage.comment: "damage",
+        import_country.comment: "import_country",
+        sales_method.comment: "sales_method",
+        credit.comment: "credit",
+        deposit.comment: "deposit",
+        installment_no.comment: "installment_no",
+        installment_amount.comment: "installment_amount",
+        interest_free_credit.comment: "interest_free_credit",
+        leasing.comment: "leasing",
+        cash_payment.comment: "cash_payment",
+        range_on_full_battery_km.comment: "range_on_full_battery_km",
+    }
