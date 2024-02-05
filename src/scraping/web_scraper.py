@@ -4,10 +4,10 @@ from bs4 import BeautifulSoup
 from tbselenium.tbdriver import TorBrowserDriver
 
 from src.config import INDEX_PAGE_URL
-from src.domain.domain import (SECTION_NAMES_SRB_MAP, AdditionalInformation,
-                               GeneralInformation, Listing)
+from src.domain.domain import (AdditionalInformation, GeneralInformation,
+                               Listing)
 from src.exception import LabelNotGivenException, ScrapingException
-from src.logger import log_detailed_error, logging
+from src.logger import log_detailed_error
 
 
 class Scraper:
@@ -27,12 +27,13 @@ class Scraper:
             )
 
             listing.name = self.soup.find(class_="table js-tutorial-all").find("h1").contents[0].get_text(strip=True)  # type: ignore
+            listing.short_url = f"{INDEX_PAGE_URL}/auto-oglasi/{listing.id}/{listing.name}"  # type: ignore
             listing.price = self.soup.find("span", "priceClassified").get_text(strip=True)  # type: ignore
 
             if listing.price == "Po dogovoru":
                 raise LabelNotGivenException("Price is not set")
 
-            listing.listing_followers_no = self.soup.find("span", "classified-liked prati-oglas-like").get_text(strip=True)  # type: ignore
+            listing.listing_followers_no = self.soup.find("span", "classified-liked").get_text(strip=True)  # type: ignore
 
             if self.soup.find("div", class_="address"):
                 location = self.soup.find("div", class_="address").find_parent("div").contents[0].get_text(strip=True)  # type: ignore
@@ -44,14 +45,13 @@ class Scraper:
                 )
 
             listing.location = location
-            listing.images_no = self.soup.find("div", class_="js-gallery-numbers image-counter").get_text(strip=True).split("/")[1]  # type: ignore
+            listing.images_no = self.soup.find("div", class_="image-counter").get_text(strip=True).split("/")[1]  # type: ignore
 
-            listing.safety = self._scrape_value_information("SafetyInformation")
-            listing.equipment = self._scrape_value_information("EquipmentInformation")
-            listing.other = self._scrape_value_information("OtherInformation")
+            listing.safety = self._scrape_value_information("safety")
+            listing.equipment = self._scrape_value_information("equipment")
+            listing.other = self._scrape_value_information("other")
             listing.description = self._scrape_description()
 
-            # logging.info("Successfully scraped listing")
             return listing
         except LabelNotGivenException as e:
             raise e
@@ -61,14 +61,17 @@ class Scraper:
 
     def _scrape_kv_information(self, class_type: type) -> object:
         domain_instance = class_type()
-        class_name = type(domain_instance).__name__
 
-        h2s = self.soup.find_all("h2", class_="classified-title")
+        try:
+            h2s = self.soup.find_all("h2", class_="classified-title")
+        except Exception as e:
+            raise ScrapingException("Listing is probably expired")
+
         main_h2 = next(
             (
                 h2
                 for h2 in h2s
-                if h2.get_text(strip=True) == SECTION_NAMES_SRB_MAP[class_name]
+                if h2.get_text(strip=True) == domain_instance.__table_args__["comment"]
             ),
             None,
         )
@@ -98,12 +101,21 @@ class Scraper:
 
                 domain_instance.__setattr__(attribute_name, value_txt)
             except Exception as e:
-                logging.error(f"{str(e)}")
+                # logging.error(f"{str(e)}")
+                log_detailed_error(e, str(e))
 
         return domain_instance
 
-    def _scrape_value_information(self, section_name: str) -> str:
-        section_name_srb = SECTION_NAMES_SRB_MAP[section_name]
+    def _scrape_value_information(self, attr_name: str) -> str:
+        if attr_name == "description":
+            raise ScrapingException(
+                "Scraping 'description' attribute is done differently."
+            )
+
+        attrs_map_to_srb_section_names = {
+            v: k for k, v in Listing.SRB_SECTION_NAMES_TO_ATTRS_MAP.items()
+        }
+        section_name_srb = attrs_map_to_srb_section_names[attr_name]
 
         h2s = self.soup.find_all("h2", class_="classified-title")
         property_values_str = ""
@@ -133,12 +145,19 @@ class Scraper:
         description = ""
 
         try:
-            description_elements = self.soup.find("div", class_="description-wrapper").contents
-            description_texts = [el.get_text(strip=True, separator="") for el in description_elements if el.name != 'br']
+            description_elements = self.soup.find(
+                "div", class_="description-wrapper"
+            ).contents
+            description_texts = [
+                el.get_text(strip=True, separator="")
+                for el in description_elements
+                if el.name != "br"
+            ]
             description = "\n".join(description_texts)
         except Exception as e:
             pass
         return description
+
 
 def create_soup(page_source: str):
     return BeautifulSoup(page_source, "lxml")
