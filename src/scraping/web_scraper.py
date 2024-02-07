@@ -34,17 +34,7 @@ class Scraper:
                 raise LabelNotGivenException("Price is not set")
 
             listing.listing_followers_no = self.soup.find("span", "classified-liked").get_text(strip=True)  # type: ignore
-
-            if self.soup.find("div", class_="address"):
-                location = self.soup.find("div", class_="address").find_parent("div").contents[0].get_text(strip=True)  # type: ignore
-            else:
-                location = (
-                    self.soup.find("div", class_="js-tutorial-contact")
-                    .findChild("div", class_="uk-width-1-2")
-                    .get_text(strip=True)
-                )
-
-            listing.location = location
+            listing.location = self._scrape_location()
             listing.images_no = self.soup.find("div", class_="image-counter").get_text(strip=True).split("/")[1]  # type: ignore
 
             listing.safety = self._scrape_value_information("safety")
@@ -62,10 +52,7 @@ class Scraper:
     def _scrape_kv_information(self, class_type: type) -> object:
         domain_instance = class_type()
 
-        try:
-            h2s = self.soup.find_all("h2", class_="classified-title")
-        except Exception as e:
-            raise ScrapingException("Listing is probably expired")
+        h2s = self.soup.find_all("h2", class_="classified-title")
 
         main_h2 = next(
             (
@@ -105,6 +92,17 @@ class Scraper:
                 log_detailed_error(e, str(e))
 
         return domain_instance
+
+    def _scrape_location(self) -> str:
+        if self.soup.find("div", class_="address"):
+            location = self.soup.find("div", class_="address").find_parent("div").contents[0].get_text(strip=True)  # type: ignore
+        else:
+            location = (
+                self.soup.find("div", class_="js-tutorial-contact")
+                .findChild("div", class_="uk-width-1-2")
+                .get_text(strip=True)
+            )
+        return location
 
     def _scrape_value_information(self, attr_name: str) -> str:
         if attr_name == "description":
