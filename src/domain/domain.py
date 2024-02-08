@@ -1,12 +1,15 @@
 from sqlalchemy import Column, String
 from sqlalchemy.orm import mapped_column, relationship
-from sqlalchemy.orm.decl_api import declarative_base
+from sqlalchemy.orm.decl_api import DeclarativeBase
 from sqlalchemy.sql.schema import ForeignKey
 from sqlalchemy.sql.sqltypes import BigInteger, Text
 
-Base = declarative_base()
 DEF_STR_SIZE = 255
 DSS = DEF_STR_SIZE  # Alias
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 class Listing(Base):
@@ -104,7 +107,7 @@ class GeneralInformation(Base):
         fuel_type.comment: "fuel_type",
         engine_capacity.comment: "engine_capacity",
         engine_power.comment: "engine_power",
-        fixed_price.comment: "fixed price",
+        fixed_price.comment: "fixed_price",
         trade_in.comment: "trade_in",
         certified.comment: "certified",
         battery_capacity.comment: "battery_capacity",
