@@ -1,7 +1,6 @@
 from sqlalchemy import URL, create_engine
 from sqlalchemy.engine.base import Engine
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from src.domain.domain import Base, Listing
@@ -57,7 +56,7 @@ class DbBroker:
         self.drop_schema()
         self.create_schema()
 
-    def create_session(self):
+    def create_session(self) -> Session:
         return Session(self.engine)
 
     def save_listing(self, listing: Listing):
@@ -67,6 +66,15 @@ class DbBroker:
                 session.add(listing)
         logging.info(listing_str)
 
+    def get_all_listings_statement(self):
+        with self.create_session() as session:
+            query = session.query(Listing).options(
+                joinedload(Listing.general_information),
+                joinedload(Listing.additional_information),
+            )
+            return query.statement
+
 
 if __name__ == "__main__":
-    DbBroker().reset_schema()
+    pass
+    # DbBroker().reset_schema()

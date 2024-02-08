@@ -16,3 +16,7 @@ tbselenium
 SQLAlchemy
 mysql-connector-python
 SQLAlchemy-Utils
+pandas
+pyarrow
+scikit-learn
+matplotlib
