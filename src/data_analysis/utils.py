@@ -11,10 +11,18 @@ def get_nas(df: pd.DataFrame) -> pd.DataFrame:
 
     # Create a DataFrame to display both counts and percentages
     result_df = pd.DataFrame(
-        {"Missing Count": missing_values, "Missing [%]": missing_percentage}
+        {"missing count": missing_values, "missing [%]": missing_percentage}
     )
 
-    return result_df[result_df["Missing Count"] > 0]
+    return result_df
+
+
+def describe(df: pd.DataFrame) -> pd.DataFrame:
+    """Expands pd.DataFrame.describe by showing missing rows by column and its percentage."""
+
+    pandas_df_describe = df.describe()
+    describe_expanded = pd.concat([pandas_df_describe, get_nas(df).T])
+    return describe_expanded
 
 
 def display_feature_name_heading(feature):
