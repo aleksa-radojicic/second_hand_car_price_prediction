@@ -1,8 +1,20 @@
+import inspect
+
 import matplotlib.pyplot as plt
 import pandas as pd
 from IPython.core.display import Markdown
 from IPython.core.display_functions import display
 from scipy import stats
+
+CF_PREFIX = "cf_"
+DA_SUFIX = "_da"
+
+
+def get_feature_name() -> str:
+    """Returns name of the feature from the function that called this one."""
+    function_name = inspect.stack()[1].function
+    feature_name = function_name[len(CF_PREFIX) : -len(DA_SUFIX)]
+    return feature_name
 
 
 def get_nas(df: pd.DataFrame) -> pd.DataFrame:

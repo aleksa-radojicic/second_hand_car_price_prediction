@@ -39,6 +39,7 @@ def get_dataset_from_db() -> pd.DataFrame:
         dtype_backend=config.DTYPE_BACKEND,
         index_col=config.INDEX,
     )
+    df = df.rename(str, axis="columns")
     db_broker.engine.dispose()
     return df
 

@@ -20,3 +20,4 @@ pandas
 pyarrow
 scikit-learn
 matplotlib
+typeguard
