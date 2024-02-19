@@ -7,13 +7,13 @@ from IPython.core.display_functions import display
 from scipy import stats
 
 CF_PREFIX = "cf_"
-DA_SUFIX = "_da"
+NB_SUFFIX = "_nb"
 
 
 def get_feature_name() -> str:
     """Returns name of the feature from the function that called this one."""
     function_name = inspect.stack()[1].function
-    feature_name = function_name[len(CF_PREFIX) : -len(DA_SUFIX)]
+    feature_name = function_name[len(CF_PREFIX) : -len(NB_SUFFIX)]
     return feature_name
 
 

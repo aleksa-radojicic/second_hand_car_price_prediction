@@ -4,16 +4,13 @@ from typing import Tuple
 import pandas as pd
 
 from src.config import FeaturesInfo
-from src.utils import preprocess_init
+from src.utils import initialize_features_info, preprocess_init
 
 
 class UACleaner:
     CF_PREFIX = "cf_"
 
-    features_info: FeaturesInfo
-
-    def __init__(self, features_info: FeaturesInfo = None):
-        self.features_info = features_info
+    features_info = initialize_features_info()
 
     @preprocess_init
     def initial_clean(
@@ -84,7 +81,9 @@ class UACleaner:
 
         # Remove '.' from values and transform to numerical
         df[feature_name] = pd.to_numeric(
-            df[feature_name].str.slice(stop=-1).str.replace(".", ""), errors="raise"
+            df[feature_name].str.slice(stop=-1).str.replace(".", ""),
+            errors="raise",
+            downcast="unsigned",
         )
 
         # Remove cars that had price = 1
@@ -104,9 +103,9 @@ class UACleaner:
 
         # Transform to numerical
         if (df[feature_name] == "").sum() == pd.to_numeric(
-            df[feature_name]
+            df[feature_name], downcast="unsigned"
         ).isna().sum():
-            df[feature_name] = pd.to_numeric(df[feature_name])
+            df[feature_name] = pd.to_numeric(df[feature_name], downcast="unsigned")
         else:
             raise ValueError(
                 "There is a listing_followers_no value that is probably incorrectly parsed."
@@ -123,6 +122,9 @@ class UACleaner:
     ) -> Tuple[pd.DataFrame, FeaturesInfo]:
         feature_name = self._get_feature_name()
 
+        # Convert 'location' to categorical type (nominal)
+        df[feature_name] = pd.Categorical(df[feature_name], ordered=False)
+
         # Add 'location' to 'nominal' features
         features_info["nominal"].append(feature_name)
 
@@ -135,10 +137,170 @@ class UACleaner:
         feature_name = self._get_feature_name()
 
         # Transformed to numerical
-        df[feature_name] = pd.to_numeric(df[feature_name])
+        df[feature_name] = pd.to_numeric(df[feature_name], downcast="unsigned")
 
         # Add 'images_no' to 'numerical' features
         features_info["numerical"].append(feature_name)
+
+        return df, features_info
+
+    @preprocess_init
+    def cf_safety(
+        self, df: pd.DataFrame, features_info: FeaturesInfo
+    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+        feature_name = self._get_feature_name()
+        prefix = "s_"
+
+        # Create data frame with dummy columns
+        df_safety_dummies = df[feature_name].str.get_dummies(sep=",").add_prefix(prefix)
+        # Extend the data frame with dummy columns
+        df = pd.concat([df, df_safety_dummies], axis=1)
+
+        # Delete 'safety' column
+        del df[feature_name]
+
+        safety_columns = df_safety_dummies.columns.tolist()
+
+        # Convert all remaining safety columns to boolean
+        df[safety_columns] = df[safety_columns].astype("boolean")
+
+        # Add all remaining safety columns to 'binary' features
+        features_info["binary"].extend(safety_columns)
+
+        return df, features_info
+
+    @preprocess_init
+    def cf_equipment(
+        self, df: pd.DataFrame, features_info: FeaturesInfo
+    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+        feature_name = self._get_feature_name()
+        prefix = "e_"
+
+        # Create data frame with dummy columns
+        df_equipment_dummies = (
+            df[feature_name].str.get_dummies(sep=",").add_prefix(prefix)
+        )
+        # Extend the data frame with dummy columns
+        df = pd.concat([df, df_equipment_dummies], axis=1)
+
+        # Delete 'equipment' column
+        del df[feature_name]
+
+        equipment_columns = df_equipment_dummies.columns.tolist()
+
+        # Convert all remaining equipment columns to boolean
+        df[equipment_columns] = df[equipment_columns].astype("boolean")
+
+        # Add all remaining equipment columns to 'binary' features
+        features_info["binary"].extend(equipment_columns)
+
+        return df, features_info
+
+    @preprocess_init
+    def cf_other(
+        self, df: pd.DataFrame, features_info: FeaturesInfo
+    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+        feature_name = self._get_feature_name()
+        prefix = "o_"
+
+        # Create data frame with dummy columns
+        df_other_dummies = df[feature_name].str.get_dummies(sep=",").add_prefix(prefix)
+        # Extend the data frame with dummy columns
+        df = pd.concat([df, df_other_dummies], axis=1)
+
+        # Delete 'other' column
+        del df[feature_name]
+
+        other_columns = df_other_dummies.columns.tolist()
+
+        # Convert all remaining other columns to boolean
+        df[other_columns] = df[other_columns].astype("boolean")
+
+        # Add all other columns to 'binary' features
+        features_info["binary"].extend(other_columns)
+
+        return df, features_info
+
+    @preprocess_init
+    def cf_description(
+        self, df: pd.DataFrame, features_info: FeaturesInfo
+    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+        feature_name = self._get_feature_name()
+
+        # Add 'description' to 'other' features
+        features_info["other"].append(feature_name)
+
+        return df, features_info
+
+    @preprocess_init
+    def c_general_informations(
+        self, df: pd.DataFrame, features_info: FeaturesInfo
+    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+        pd.set_option("mode.chained_assignment", None)
+
+        # Delete new cars
+        new_cars_cond = df.gi_condition == "Novo vozilo"
+        df = df.loc[~new_cars_cond, :]
+
+        # Delete 'gi_condition' feature
+        del df["gi_condition"]
+
+        # Strip 'km', remove '.' and convert 'gi_kilometerage' to numerical
+        df.gi_kilometerage = pd.to_numeric(
+            df.gi_kilometerage.str.rstrip("km").str.replace(".", ""),
+            downcast="unsigned",
+        )
+
+        # Remove '.' and convert 'gi_production_year' to numerical
+        df.gi_production_year = pd.to_numeric(
+            df.gi_production_year.str.rstrip("."), downcast="unsigned"
+        )
+
+        # Strip 'cm3' and convert 'gi_engine_capacity' to numerical
+        df.gi_engine_capacity = pd.to_numeric(
+            df.gi_engine_capacity.str.rstrip("cm3"), errors="raise", downcast="unsigned"
+        )
+
+        # Extract only value of kW (ignore KS which stands for horse powers)
+        df.gi_engine_power = pd.to_numeric(
+            df.gi_engine_power.str.split("/", n=1).str.get(0), downcast="unsigned"
+        )
+
+        # Strip 'kWh' and convert 'gi_battery_capacity' to numerical
+        df.gi_battery_capacity = pd.to_numeric(
+            df.gi_battery_capacity.str.rstrip("kWh"), downcast="unsigned"
+        )
+
+        nominal_cols = [
+            "gi_brand",
+            "gi_model",
+            "gi_body_type",
+            "gi_fuel_type",
+            "gi_trade_in",
+        ]
+        numerical_cols = [
+            "gi_kilometerage",
+            "gi_production_year",
+            "gi_engine_capacity",
+            "gi_engine_power",
+            "gi_battery_capacity",
+        ]
+        other_cols = ["gi_certified"]
+
+        # Convert nominal columns to categorical type (nominal)
+        for col in nominal_cols:
+            df[col] = pd.Categorical(df[col], ordered=False)
+
+        # Add nominal_cols columns to 'nominal' features
+        features_info["nominal"].extend(nominal_cols)
+
+        # Add numerical_cols columns to 'numerical' features
+        features_info["numerical"].extend(numerical_cols)
+
+        # Add other_cols columns to 'other' features
+        features_info["other"].extend(other_cols)
+
+        pd.set_option("mode.chained_assignment", "warn")
 
         return df, features_info
 
@@ -154,11 +316,18 @@ class UACleaner:
         )
         df, features_info = self.cf_location(df=df, features_info=features_info)
         df, features_info = self.cf_images_no(df=df, features_info=features_info)
+        df, features_info = self.cf_safety(df=df, features_info=features_info)
+        df, features_info = self.cf_equipment(df=df, features_info=features_info)
+        df, features_info = self.cf_other(df=df, features_info=features_info)
+        df, features_info = self.cf_description(df=df, features_info=features_info)
+        df, features_info = self.c_general_informations(df=df, features_info=features_info)
 
         return df, features_info
 
     @preprocess_init
-    def clean(self, df: pd.DataFrame, features_info: FeaturesInfo) -> pd.DataFrame:
+    def clean(self, df: pd.DataFrame) -> pd.DataFrame:
+        features_info = self.features_info
+        
         df, features_info = self.initial_clean(df=df, features_info=features_info)
         df, features_info = self.clean_individual_columns(
             df=df, features_info=features_info
