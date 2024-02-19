@@ -21,3 +21,4 @@ pyarrow
 scikit-learn
 matplotlib
 typeguard
+pytest
