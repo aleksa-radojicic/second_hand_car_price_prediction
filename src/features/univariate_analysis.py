@@ -1,6 +1,7 @@
 import inspect
 from typing import Tuple
 
+import numpy as np
 import pandas as pd
 
 from src.config import FeaturesInfo
@@ -102,14 +103,9 @@ class UACleaner:
         feature_name = self._get_feature_name()
 
         # Transform to numerical
-        if (df[feature_name] == "").sum() == pd.to_numeric(
-            df[feature_name], downcast="unsigned"
-        ).isna().sum():
-            df[feature_name] = pd.to_numeric(df[feature_name], downcast="unsigned")
-        else:
-            raise ValueError(
-                "There is a listing_followers_no value that is probably incorrectly parsed."
-            )
+        df[feature_name] = pd.to_numeric(
+            df[feature_name], downcast="unsigned", errors="raise"
+        )
 
         # Added 'listing_followers_no' to numerical features
         features_info["numerical"].append(feature_name)
@@ -137,7 +133,9 @@ class UACleaner:
         feature_name = self._get_feature_name()
 
         # Transformed to numerical
-        df[feature_name] = pd.to_numeric(df[feature_name], downcast="unsigned")
+        df[feature_name] = pd.to_numeric(
+            df[feature_name], downcast="unsigned", errors="raise"
+        )
 
         # Add 'images_no' to 'numerical' features
         features_info["numerical"].append(feature_name)
@@ -245,31 +243,33 @@ class UACleaner:
         # Delete 'gi_condition' feature
         del df["gi_condition"]
 
-        # Strip 'km', remove '.' and convert 'gi_kilometerage' to numerical
-        df.gi_kilometerage = pd.to_numeric(
-            df.gi_kilometerage.str.rstrip("km").str.replace(".", ""),
-            downcast="unsigned",
+        # Strip 'km' and spaces and remove '.'  from 'gi_kilometerage'
+        df.gi_kilometerage = (
+            df.gi_kilometerage.str.rstrip("km").str.replace(".", "").str.strip()
         )
 
-        # Remove '.' and convert 'gi_production_year' to numerical
-        df.gi_production_year = pd.to_numeric(
-            df.gi_production_year.str.rstrip("."), downcast="unsigned"
+        # Remove '.' and strip spaces from 'gi_production_year'
+        df.gi_production_year = df.gi_production_year.str.rstrip(".").str.strip()
+
+        # Strip 'cm3' and spaces from 'gi_engine_capacity'
+        df.gi_engine_capacity = df.gi_engine_capacity.str.rstrip("cm3").str.strip()
+
+        # Extract only value of kW (ignore KS which stands for horse powers) and remove spaces
+        df.gi_engine_power = (
+            df.gi_engine_power.str.split("/", n=1).str.get(0).str.strip()
         )
 
-        # Strip 'cm3' and convert 'gi_engine_capacity' to numerical
-        df.gi_engine_capacity = pd.to_numeric(
-            df.gi_engine_capacity.str.rstrip("cm3"), errors="raise", downcast="unsigned"
+        # Strip spaces and 'do: ' from 'gi_certified', replace 'Nije atestiran' with NA and transform to datetime
+        df.gi_certified = pd.to_datetime(
+            df.gi_certified.str.strip()
+            .str.lstrip("do: ")
+            .replace({"Nije atestiran": np.nan}),
+            format="%m.%Y",
+            errors="raise",
         )
 
-        # Extract only value of kW (ignore KS which stands for horse powers)
-        df.gi_engine_power = pd.to_numeric(
-            df.gi_engine_power.str.split("/", n=1).str.get(0), downcast="unsigned"
-        )
-
-        # Strip 'kWh' and convert 'gi_battery_capacity' to numerical
-        df.gi_battery_capacity = pd.to_numeric(
-            df.gi_battery_capacity.str.rstrip("kWh"), downcast="unsigned"
-        )
+        # Strip 'kWh' and spaces from 'gi_battery_capacity'
+        df.gi_battery_capacity = df.gi_battery_capacity.str.rstrip("kWh").str.strip()
 
         nominal_cols = [
             "gi_brand",
@@ -287,17 +287,126 @@ class UACleaner:
         ]
         other_cols = ["gi_certified"]
 
-        # Convert nominal columns to categorical type (nominal)
+        # Convert nominal columns to categorical types (nominal)
         for col in nominal_cols:
             df[col] = pd.Categorical(df[col], ordered=False)
 
-        # Add nominal_cols columns to 'nominal' features
+        # Convert numerical columns to numerical types
+        for col in numerical_cols:
+            df[col] = pd.to_numeric(df[col], errors="raise", downcast="unsigned")
+
         features_info["nominal"].extend(nominal_cols)
-
-        # Add numerical_cols columns to 'numerical' features
         features_info["numerical"].extend(numerical_cols)
+        features_info["other"].extend(other_cols)
 
-        # Add other_cols columns to 'other' features
+        pd.set_option("mode.chained_assignment", "warn")
+
+        return df, features_info
+
+    @preprocess_init
+    def c_additional_informations(
+        self, df: pd.DataFrame, features_info: FeaturesInfo
+    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+
+        pd.set_option("mode.chained_assignment", None)
+
+        # Strip 'Euro' and spaces from 'ai_engine_emission_class'
+        df.ai_engine_emission_class = df.ai_engine_emission_class.str.lstrip(
+            "Euro"
+        ).str.strip()
+
+        # Strip spaces and map 'ai_doors_no' so that True represents 4/5 doors and False 2/3 doors
+        df.ai_doors_no = df.ai_doors_no.str.strip().map(
+            {"4/5 vrata": True, "2/3 vrata": False}
+        )
+
+        # Strip 'sedišta' and spaces from 'ai_seats_no'
+        df.ai_seats_no = df.ai_seats_no.str.rstrip("sedišta").str.strip()
+
+        # Keep only cars that have steering wheele on the right side
+        df = df.loc[df.ai_steering_wheel_side.str.strip() != "Desni volan", :]
+
+        # Delete 'ai_steering_wheel_side' feature (no longer useful)
+        del df["ai_steering_wheel_side"]
+
+        # Strip spaces from 'ai_registered_until', replace 'Nije registrovan' with NA and transform to datetime
+        df.ai_registered_until = pd.to_datetime(
+            df.ai_registered_until.str.strip().replace({"Nije registrovan": np.nan}),
+            format="%m.%Y.",
+            errors="raise",
+        )
+
+        # Strip spaces and map 'ai_credit' so that True represents 'DA' and False <NA>
+        df.ai_credit = df.ai_credit.str.strip().map({"DA": True, np.nan: False})
+
+        # Strip '€' and spaces from 'ai_deposit'
+        df.ai_deposit = df.ai_deposit.str.rstrip("€").str.strip()
+
+        # Strip '€' and spaces from 'ai_installment_amount'
+        df.ai_installment_amount = df.ai_installment_amount.str.rstrip("€").str.strip()
+
+        # Strip spaces and map 'ai_interest_free_credit' so that True represents 'DA' and False <NA>
+        df.ai_interest_free_credit = df.ai_interest_free_credit.str.strip().map(
+            {"DA": True, np.nan: False}
+        )
+
+        # Strip spaces and map 'ai_leasing' so that True represents 'DA' and False <NA>
+        df.ai_leasing = df.ai_leasing.str.strip().map({"DA": True, np.nan: False})
+
+        # Strip '€' and spaces from 'ai_cash_payment'
+        df.ai_cash_payment = df.ai_cash_payment.str.rstrip("€").str.strip()
+
+        binary_cols = [
+            "ai_doors_no",
+            "ai_credit",
+            "ai_interest_free_credit",
+            "ai_leasing",
+        ]
+        ordinal_cols = ["ai_engine_emission_class", "ai_damage"]
+        nominal_cols = [
+            "ai_floating_flywheel",
+            "ai_gearbox_type",
+            "ai_air_conditioning",
+            "ai_color",
+            "ai_interior_material",
+            "ai_interior_color",
+            "ai_propulsion",
+            "ai_vehicle_origin",
+            "ai_ownership",
+            "ai_import_country",
+            "ai_sales_method",
+        ]
+        numerical_cols = [
+            "ai_seats_no",
+            "ai_deposit",
+            "ai_installment_no",
+            "ai_installment_amount",
+            "ai_cash_payment",
+            "ai_range_on_full_battery_km",
+        ]
+        other_cols = [
+            "ai_registered_until",
+        ]
+
+        # Convert binary columns to boolean
+        df[binary_cols] = df[binary_cols].astype("boolean")
+
+        # Convert ordinal columns to categorical types (ordinal)
+        for col in ordinal_cols:
+            df[col] = pd.Categorical(df[col], ordered=True)
+
+        # Convert nominal columns to categorical types (nominal)
+        for col in nominal_cols:
+            df[col] = pd.Categorical(df[col], ordered=False)
+
+        # Convert numerical columns to numerical types
+        for col in numerical_cols:
+            df[col] = pd.to_numeric(df[col], errors="raise", downcast="unsigned")
+
+        features_info["binary"].extend(binary_cols)
+        features_info["ordinal"].extend(ordinal_cols)
+        features_info["nominal"].extend(nominal_cols)
+        features_info["numerical"].extend(numerical_cols)
         features_info["other"].extend(other_cols)
 
         pd.set_option("mode.chained_assignment", "warn")
@@ -320,14 +429,19 @@ class UACleaner:
         df, features_info = self.cf_equipment(df=df, features_info=features_info)
         df, features_info = self.cf_other(df=df, features_info=features_info)
         df, features_info = self.cf_description(df=df, features_info=features_info)
-        df, features_info = self.c_general_informations(df=df, features_info=features_info)
+        df, features_info = self.c_general_informations(
+            df=df, features_info=features_info
+        )
+        df, features_info = self.c_additional_informations(
+            df=df, features_info=features_info
+        )
 
         return df, features_info
 
     @preprocess_init
     def clean(self, df: pd.DataFrame) -> pd.DataFrame:
         features_info = self.features_info
-        
+
         df, features_info = self.initial_clean(df=df, features_info=features_info)
         df, features_info = self.clean_individual_columns(
             df=df, features_info=features_info
