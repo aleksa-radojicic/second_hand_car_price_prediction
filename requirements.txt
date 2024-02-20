@@ -17,6 +17,7 @@ SQLAlchemy
 mysql-connector-python
 SQLAlchemy-Utils
 pandas
+numpy
 pyarrow
 scikit-learn
 matplotlib

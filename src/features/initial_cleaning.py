@@ -8,13 +8,13 @@ from src.config import FeaturesInfo
 from src.utils import initialize_features_info, preprocess_init
 
 
-class UACleaner:
+class InitialCleaner:
     CF_PREFIX = "cf_"
 
     features_info = initialize_features_info()
 
     @preprocess_init
-    def initial_clean(
+    def initial_preparation(
         self, df: pd.DataFrame, features_info: FeaturesInfo
     ) -> Tuple[pd.DataFrame, FeaturesInfo]:
         # Transform column type to string
@@ -442,7 +442,7 @@ class UACleaner:
     def clean(self, df: pd.DataFrame) -> pd.DataFrame:
         features_info = self.features_info
 
-        df, features_info = self.initial_clean(df=df, features_info=features_info)
+        df, features_info = self.initial_preparation(df=df, features_info=features_info)
         df, features_info = self.clean_individual_columns(
             df=df, features_info=features_info
         )
