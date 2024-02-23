@@ -73,9 +73,9 @@ def preprocess_init(func: Callable) -> Callable:
         ):
             kwargs["features_info"] = copy.deepcopy(kwargs["features_info"])
 
-        if "columns_nan_strategy" in kwargs:
-            kwargs["columns_nan_strategy"] = copy.deepcopy(
-                kwargs["columns_nan_strategy"]
+        if "cols_nan_strategy" in kwargs:
+            kwargs["cols_nan_strategy"] = copy.deepcopy(
+                kwargs["cols_nan_strategy"]
             )
 
         result = func(*args, **kwargs)

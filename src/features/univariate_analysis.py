@@ -16,7 +16,7 @@ class UACleaner:
         self.features_info = features_info
 
     @preprocess_init
-    def ua_nominal_features_nb(
+    def ua_nominal_features(
         self,
         df: pd.DataFrame,
         features_info: FeaturesInfo,
@@ -69,14 +69,35 @@ class UACleaner:
         return df, features_info, cols_nan_strategy
 
     @preprocess_init
+    def ua_ordinal_features(
+        self,
+        df: pd.DataFrame,
+        features_info: FeaturesInfo,
+        cols_nan_strategy: Dict[str, List[str]],
+    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]]]:
+        # Drop empty categories
+        for col in features_info["ordinal"]:
+            df[col] = df[col].cat.remove_unused_categories()
+
+        modus_strat_cols = ["ai_engine_emission_class", "ai_damage"]
+        cols_nan_strategy["modus"].extend(modus_strat_cols)
+
+        return df, features_info, cols_nan_strategy
+
+    @preprocess_init
     def clean(self, df: pd.DataFrame) -> pd.DataFrame:
         features_info = self.features_info
         cols_nan_strategy = self.cols_nan_strategy
 
-        df, features_info, cols_nan_strategy = self.ua_nominal_features_nb(
+        df, features_info, cols_nan_strategy = self.ua_nominal_features(
             df=df,
             features_info=features_info,
-            columns_nan_strategy=cols_nan_strategy,
+            cols_nan_strategy=cols_nan_strategy,
+        )
+        df, features_info, cols_nan_strategy = self.ua_ordinal_features(
+            df=df,
+            features_info=features_info,
+            cols_nan_strategy=cols_nan_strategy,
         )
 
         self.features_info = features_info
