@@ -31,7 +31,8 @@ def init_cols_nan_strategy() -> Dict[str, List[str]]:
         "mean": [],
         "median": [],
         "modus": [],
-        "const": [],
+        "const_unknown": [],
+        "const_0": [],
     }
     return columns_nan_strategy
 
@@ -74,9 +75,10 @@ def preprocess_init(func: Callable) -> Callable:
             kwargs["features_info"] = copy.deepcopy(kwargs["features_info"])
 
         if "cols_nan_strategy" in kwargs:
-            kwargs["cols_nan_strategy"] = copy.deepcopy(
-                kwargs["cols_nan_strategy"]
-            )
+            kwargs["cols_nan_strategy"] = copy.deepcopy(kwargs["cols_nan_strategy"])
+
+        if "idx_to_remove" in kwargs:
+            kwargs["idx_to_remove"] = copy.deepcopy(kwargs["idx_to_remove"])
 
         result = func(*args, **kwargs)
         return result

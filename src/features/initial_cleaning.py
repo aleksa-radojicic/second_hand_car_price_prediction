@@ -275,7 +275,7 @@ class InitialCleaner:
         # Strip 'cm3' and spaces from 'gi_engine_capacity'
         df.gi_engine_capacity = df.gi_engine_capacity.str.rstrip("cm3").str.strip()
 
-        # Extract only value of kW (ignore KS which stands for horse powers) and remove spaces
+        # Extract only value of KS (stands for horse powers) and remove spaces
         df.gi_engine_power = (
             df.gi_engine_power.str.split("/", n=1).str.get(0).str.strip()
         )
