@@ -5,13 +5,13 @@ import numpy as np
 import pandas as pd
 
 from src.config import FeaturesInfo
-from src.utils import initialize_features_info, preprocess_init
+from src.utils import init_features_info, preprocess_init
 
 
 class InitialCleaner:
     CF_PREFIX = "cf_"
 
-    features_info = initialize_features_info()
+    features_info = init_features_info()
 
     @preprocess_init
     def initial_preparation(
@@ -165,6 +165,13 @@ class InitialCleaner:
         # Add all remaining safety columns to 'binary' features
         features_info["binary"].extend(safety_columns)
 
+        # Fixed column names
+        df.columns = (
+            df.columns.str.strip()
+            .str.replace(r"[- ]", "_", regex=True)
+            .str.replace("/", "_ili_")
+        )
+
         return df, features_info
 
     @preprocess_init
@@ -192,6 +199,13 @@ class InitialCleaner:
         # Add all remaining equipment columns to 'binary' features
         features_info["binary"].extend(equipment_columns)
 
+        # Fixed column names
+        df.columns = (
+            df.columns.str.strip()
+            .str.replace(r"[- ]", "_", regex=True)
+            .str.replace("/", "_ili_")
+        )
+
         return df, features_info
 
     @preprocess_init
@@ -216,6 +230,13 @@ class InitialCleaner:
 
         # Add all other columns to 'binary' features
         features_info["binary"].extend(other_columns)
+
+        # Fixed column names
+        df.columns = (
+            df.columns.str.strip()
+            .str.replace(r"[- ]", "_", regex=True)
+            .str.replace("/", "_ili_")
+        )
 
         return df, features_info
 

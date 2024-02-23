@@ -8,7 +8,7 @@ from dotenv import find_dotenv, load_dotenv
 from src import config
 from src.db.broker import DbBroker
 from src.logger import logging
-from src.utils import initialize_features_info, json_object, pickle_object
+from src.utils import init_features_info, json_object, pickle_object
 
 
 @click.command()
@@ -45,7 +45,7 @@ def get_dataset_from_db() -> pd.DataFrame:
 
 
 def get_metadata() -> config.FeaturesInfo:
-    features_info = initialize_features_info()
+    features_info = init_features_info()
     return features_info
 
 

@@ -1,13 +1,23 @@
 import inspect
+import os
+import json
 
 import matplotlib.pyplot as plt
 import pandas as pd
 from IPython.core.display import Markdown
 from IPython.core.display_functions import display
 from scipy import stats
+from typing import Tuple
+
+from src.config import FeaturesInfo
 
 CF_PREFIX = "cf_"
 NB_SUFFIX = "_nb"
+
+STAGES_DICT = [
+    {"name": "1_InitialCleaning", "folder_path": f"{os.getcwd()}/artifacts"},
+    {"name": "2_UnivariateAnalysis", "folder_path": f"{os.getcwd()}/artifacts"},
+]
 
 
 def get_feature_name() -> str:
@@ -19,6 +29,7 @@ def get_feature_name() -> str:
 
 def get_nas(df: pd.DataFrame) -> pd.DataFrame:
     missing_values = df.isna().sum().sort_values(ascending=False)
+    missing_values = missing_values[missing_values > 0]
     missing_percentage = (missing_values / len(df)) * 100
 
     # Create a DataFrame to display both counts and percentages
@@ -83,3 +94,21 @@ def get_value_counts_freq_with_perc(df, column):
     result = pd.concat([value_counts_freq, value_counts_perc], axis=1)
     result.columns.values[1] = "percentage [%]"
     return result
+
+
+def save_dataset_and_metadata(
+    file_name: str, path: str, dataset: pd.DataFrame, metadata: FeaturesInfo
+):
+    with open(file=f"{path}/{file_name}_features_info.json", mode="w") as file:
+        json.dump(metadata, file)
+    dataset.to_pickle(path=f"{path}/{file_name}_df.pkl")
+
+
+def load_dataset_and_metadata(
+    file_name: str, path: str
+) -> Tuple[pd.DataFrame, FeaturesInfo]:
+    with open(file=f"{path}/{file_name}_features_info.json", mode="r") as file:
+        metadata: FeaturesInfo = json.load(file)
+        data = pd.read_pickle(f"{path}/{file_name}_df.pkl")
+
+        return data, metadata

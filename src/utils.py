@@ -2,14 +2,15 @@ import copy
 import functools
 import os
 import pickle
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 
 import pandas as pd
 
 from src.config import FeaturesInfo
 from typeguard import check_type
 
-def initialize_features_info() -> FeaturesInfo:
+
+def init_features_info() -> FeaturesInfo:
     features_info: FeaturesInfo = {
         "numerical": [],
         "binary": [],
@@ -23,6 +24,16 @@ def initialize_features_info() -> FeaturesInfo:
         "features_to_delete": [],
     }
     return features_info
+
+
+def init_cols_nan_strategy() -> Dict[str, List[str]]:
+    columns_nan_strategy = {
+        "mean": [],
+        "median": [],
+        "modus": [],
+        "const": [],
+    }
+    return columns_nan_strategy
 
 
 def pickle_object(file_path, obj):
@@ -61,6 +72,11 @@ def preprocess_init(func: Callable) -> Callable:
             kwargs["features_info"], FeaturesInfo
         ):
             kwargs["features_info"] = copy.deepcopy(kwargs["features_info"])
+
+        if "columns_nan_strategy" in kwargs:
+            kwargs["columns_nan_strategy"] = copy.deepcopy(
+                kwargs["columns_nan_strategy"]
+            )
 
         result = func(*args, **kwargs)
         return result
