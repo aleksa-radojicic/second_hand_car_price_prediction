@@ -96,11 +96,18 @@ class UACleaner:
         idx_to_remove: List[int],
     ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
         const_strat_cols_zero = ["listing_followers_no"]
+
+        # Drop 'gi_battery_capacity' (too many zero values)
+        # Drop 'ai_deposit' (label leakage)
+        # Drop 'ai_installment_no' (label leakage)
+        # Drop 'ai_cash_payment' (label leakage)
+        # Drop 'ai_range_on_full_battery_km' (too many zero values)
         cols_scheduled_for_deletion = [
             "gi_battery_capacity",
             "ai_deposit",
             "ai_installment_no",
             "ai_cash_payment",
+            "ai_range_on_full_battery_km",
         ]
         median_strat_cols = [
             col
@@ -118,14 +125,41 @@ class UACleaner:
         df.loc[df.gi_engine_capacity > 0.2 * 1e8, "gi_engine_capacity"] = np.nan
 
         features_info["features_to_delete"].extend(cols_scheduled_for_deletion)
-        print("Dropped 'gi_battery_capacity' (too many zero values)")
-        print("Dropped 'ai_deposit' (label leakage)")
-        print("Dropped 'ai_installment_no' (label leakage)")
-        print("Dropped 'ai_cash_payment' (label leakage)")
-        print("Dropped 'ai_range_on_full_battery_km' (too many zero values)")
 
         cols_nan_strategy["const_0"].extend(const_strat_cols_zero)
         cols_nan_strategy["median"].extend(median_strat_cols)
+
+        return df, features_info, cols_nan_strategy, idx_to_remove
+
+    @preprocess_init
+    def ua_binary_features(
+        self,
+        df: pd.DataFrame,
+        features_info: FeaturesInfo,
+        cols_nan_strategy: Dict[str, List[str]],
+        idx_to_remove: List[int],
+    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+        cols_scheduled_for_deletion = [
+            "e_Fabrički_ugrađeno_dečije_sedište",
+            "e_Volan_u_kombinaciji_drvo_ili_koža",
+            "o_Oldtimer",
+            "o_Prilagođeno_invalidima",
+            "o_Restauriran",
+            "o_Test_vozilo",
+            "o_Tuning",
+        ]
+
+        const_false_strat_cols = ["ai_credit", "ai_interest_free_credit", "ai_leasing"]
+        modus_strat_cols = [
+            col
+            for col in features_info["binary"]
+            if col not in cols_scheduled_for_deletion + const_false_strat_cols
+        ]
+
+        cols_nan_strategy["const_false"].extend(const_false_strat_cols)
+        cols_nan_strategy["modus"].extend(modus_strat_cols)
+
+        features_info["features_to_delete"].extend(cols_scheduled_for_deletion)
 
         return df, features_info, cols_nan_strategy, idx_to_remove
 
@@ -154,6 +188,12 @@ class UACleaner:
                 cols_nan_strategy=cols_nan_strategy,
                 idx_to_remove=idx_to_remove,
             )
+        )
+        df, features_info, cols_nan_strategy, idx_to_remove = self.ua_binary_features(
+            df=df,
+            features_info=features_info,
+            cols_nan_strategy=cols_nan_strategy,
+            idx_to_remove=idx_to_remove,
         )
 
         self.features_info = features_info

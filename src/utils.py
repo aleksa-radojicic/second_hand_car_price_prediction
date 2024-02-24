@@ -33,6 +33,7 @@ def init_cols_nan_strategy() -> Dict[str, List[str]]:
         "modus": [],
         "const_unknown": [],
         "const_0": [],
+        "const_false": [],
     }
     return columns_nan_strategy
 

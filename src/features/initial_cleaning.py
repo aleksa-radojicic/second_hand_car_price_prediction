@@ -246,6 +246,16 @@ class InitialCleaner:
 
         df.rename(columns=dict(zip(other_columns, other_columns_fixed)), inplace=True)
 
+        # Delete taxi cars and the column
+        df = df.loc[df.o_Taxi == False, :]
+        del df["o_Taxi"]
+        other_columns_fixed.remove("o_Taxi")
+
+        # Delete driving school cars and the column
+        df = df.loc[df.o_Vozilo_auto_škole == False, :]
+        del df["o_Vozilo_auto_škole"]
+        other_columns_fixed.remove("o_Vozilo_auto_škole")
+
         # Add all remaining other columns to 'binary' features
         features_info["binary"].extend(other_columns_fixed)
 
