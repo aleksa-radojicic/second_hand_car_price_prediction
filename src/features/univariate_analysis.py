@@ -164,6 +164,36 @@ class UACleaner:
         return df, features_info, cols_nan_strategy, idx_to_remove
 
     @preprocess_init
+    def ua_other_features(
+        self,
+        df: pd.DataFrame,
+        features_info: FeaturesInfo,
+        cols_nan_strategy: Dict[str, List[str]],
+        idx_to_remove: List[int],
+    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+        # Subset of other columns
+        other_columns = ["gi_certified", "ai_registered_until"]
+        today_date = np.datetime64("2024-01")
+
+        # Transform 'gi_certified' and 'ai_registered_until' to difference of '2024-01' date and corresponding dates
+        df.gi_certified = pd.to_numeric(
+            (df.gi_certified - today_date).dt.days.astype("Int64"),  # type: ignore
+            downcast="signed",
+        )
+        df.ai_registered_until = pd.to_numeric(
+            (df.ai_registered_until - today_date).dt.days.astype("Int64"),  # type: ignore
+            downcast="signed",
+        )
+
+        cols_nan_strategy["const_0"].extend(other_columns)
+
+        for col in other_columns:
+            features_info["other"].remove(col)
+        features_info["numerical"].extend(other_columns)
+
+        return df, features_info, cols_nan_strategy, idx_to_remove
+
+    @preprocess_init
     def clean(self, df: pd.DataFrame) -> pd.DataFrame:
         features_info = self.features_info
         cols_nan_strategy = self.cols_nan_strategy
@@ -190,6 +220,12 @@ class UACleaner:
             )
         )
         df, features_info, cols_nan_strategy, idx_to_remove = self.ua_binary_features(
+            df=df,
+            features_info=features_info,
+            cols_nan_strategy=cols_nan_strategy,
+            idx_to_remove=idx_to_remove,
+        )
+        df, features_info, cols_nan_strategy, idx_to_remove = self.ua_other_features(
             df=df,
             features_info=features_info,
             cols_nan_strategy=cols_nan_strategy,
