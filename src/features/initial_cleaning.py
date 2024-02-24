@@ -162,15 +162,18 @@ class InitialCleaner:
         # Convert all remaining safety columns to boolean
         df[safety_columns] = df[safety_columns].astype("boolean")
 
-        # Add all remaining safety columns to 'binary' features
-        features_info["binary"].extend(safety_columns)
-
-        # Fixed column names
-        df.columns = (
-            df.columns.str.strip()
+        # Fix column names
+        safety_columns_fixed = (
+            df[safety_columns]
+            .columns.str.strip()
             .str.replace(r"[- ]", "_", regex=True)
             .str.replace("/", "_ili_")
-        )
+        ).tolist()
+
+        df.rename(columns=dict(zip(safety_columns, safety_columns_fixed)), inplace=True)
+
+        # Add all remaining safety columns to 'binary' features
+        features_info["binary"].extend(safety_columns_fixed)
 
         return df, features_info
 
@@ -196,15 +199,20 @@ class InitialCleaner:
         # Convert all remaining equipment columns to boolean
         df[equipment_columns] = df[equipment_columns].astype("boolean")
 
-        # Add all remaining equipment columns to 'binary' features
-        features_info["binary"].extend(equipment_columns)
-
-        # Fixed column names
-        df.columns = (
-            df.columns.str.strip()
+        # Fix column names
+        equipment_columns_fixed = (
+            df[equipment_columns]
+            .columns.str.strip()
             .str.replace(r"[- ]", "_", regex=True)
             .str.replace("/", "_ili_")
+        ).tolist()
+
+        df.rename(
+            columns=dict(zip(equipment_columns, equipment_columns_fixed)), inplace=True
         )
+
+        # Add all remaining equipment columns to 'binary' features
+        features_info["binary"].extend(equipment_columns_fixed)
 
         return df, features_info
 
@@ -228,15 +236,18 @@ class InitialCleaner:
         # Convert all remaining other columns to boolean
         df[other_columns] = df[other_columns].astype("boolean")
 
-        # Add all other columns to 'binary' features
-        features_info["binary"].extend(other_columns)
-
-        # Fixed column names
-        df.columns = (
-            df.columns.str.strip()
+        # Fix column names
+        other_columns_fixed = (
+            df[other_columns]
+            .columns.str.strip()
             .str.replace(r"[- ]", "_", regex=True)
             .str.replace("/", "_ili_")
-        )
+        ).tolist()
+
+        df.rename(columns=dict(zip(other_columns, other_columns_fixed)), inplace=True)
+
+        # Add all remaining other columns to 'binary' features
+        features_info["binary"].extend(other_columns_fixed)
 
         return df, features_info
 
