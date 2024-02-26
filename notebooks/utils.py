@@ -12,6 +12,7 @@ from scipy import stats
 
 from src import config
 from src.config import FeaturesInfo
+from src.utils import init_cols_nan_strategy
 
 CF_PREFIX = "cf_"
 NB_SUFFIX = "_nb"
@@ -122,15 +123,31 @@ def save_artifacts(
 
 def load_dataset_and_metadata(
     file_name: str, path: str
-) -> Tuple[pd.DataFrame, FeaturesInfo]:
+) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
     with open(file=f"{path}/{file_name}_features_info.json", mode="r") as file:
         metadata: FeaturesInfo = json.load(file)
         data = pd.read_pickle(f"{path}/{file_name}_df.pkl")
 
-        return data, metadata
+        cols_nan_strategy: Dict[str, List[str]] = init_cols_nan_strategy()
+        try:
+            with open(
+                file=f"{path}/{file_name}_cols_nan_strategy.json", mode="w"
+            ) as file:
+                cols_nan_strategy = json.load(file)
+        except:
+            pass
+
+        idx_to_remove: List[int] = []
+        try:
+            with open(file=f"{path}/{file_name}_idx_to_remove.json", mode="w") as file:
+                idx_to_remove = json.load(file)
+        except:
+            pass
+
+        return data, metadata, cols_nan_strategy, idx_to_remove
 
 
-def test_features_info_and_columns(df: pd.DataFrame, features_info: FeaturesInfo):
+def test_features_info_duplicates(features_info: FeaturesInfo):
     all_feats = []
     for key in features_info:
         if key == "features_to_delete":
@@ -138,17 +155,67 @@ def test_features_info_and_columns(df: pd.DataFrame, features_info: FeaturesInfo
         all_feats.extend(features_info[key])
 
     # Get duplicate features
-    dupe_feats = [
-        feat for feat, count in collections.Counter(all_feats).items() if count > 1
-    ]
-    if dupe_feats:
+    dupe_feats_freq = {
+        feat: count
+        for feat, count in collections.Counter(all_feats).items()
+        if count > 1
+    }
+    if dupe_feats_freq:
         raise AssertionError(
-            f"Features info contains following duplicate features: {dupe_feats}"
+            f"Features info contains following duplicate features:\n{dupe_feats_freq}"
         )
+
+
+def test_features_info_with_columns(df: pd.DataFrame, features_info: FeaturesInfo):
+    all_feats = []
+    for key in features_info:
+        if key == "features_to_delete":
+            continue
+        all_feats.extend(features_info[key])
+
     all_cols = df.drop(config.LABEL, axis=1).columns.tolist()
 
-    not_in_right_msg = f"Features not in right: {set(all_feats) - set(all_cols)}"
-    not_in_left_msg = f"Features not in left: {set(all_cols) - set(all_feats)}"
+    not_in_right_msg = f"Features not in right:\n{set(all_feats) - set(all_cols)}"
+    not_in_left_msg = f"Features not in left:\n{set(all_cols) - set(all_feats)}"
     error_msg = f"{not_in_right_msg}\n{not_in_left_msg}"
 
     assert set(all_feats) == set(all_cols), error_msg
+
+
+def test_cols_nan_strategy_duplicates(cols_nan_strategy: Dict[str, List[str]]):
+    # Columns nan strategy all columns list
+    cns_list = []
+    for strategy in cols_nan_strategy:
+        cns_list.extend(cols_nan_strategy[strategy])
+
+    # Get duplicate features
+    dupe_cols_freq = {
+        col: freq for col, freq in collections.Counter(cns_list).items() if freq > 1
+    }
+    if dupe_cols_freq:
+        raise AssertionError(
+            f"Cols_nan_strategy contains following duplicate features:\n{dupe_cols_freq}"
+        )
+
+
+def test_cols_nan_strategy_with_features_info(
+    cols_nan_strategy: Dict[str, List[str]], features_info: FeaturesInfo
+):
+    all_feats = []
+    for key in features_info:
+        if key == "other":
+            continue
+        all_feats.extend(features_info[key])
+
+    all_feats = [col for col in all_feats if col not in features_info["features_to_delete"]]
+
+    # Columns nan strategy all columns list
+    cns_list = []
+    for strategy in cols_nan_strategy:
+        cns_list.extend(cols_nan_strategy[strategy])
+
+    not_in_right_msg = f"Columns not in right:\n{set(all_feats) - set(cns_list)}"
+    not_in_left_msg = f"Columns not in left:\n{set(cns_list) - set(all_feats)}"
+    error_msg = f"{not_in_right_msg}\n{not_in_left_msg}"
+
+    assert set(all_feats) == set(cns_list), error_msg
