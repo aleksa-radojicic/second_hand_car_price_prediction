@@ -82,6 +82,9 @@ class UACleaner:
         for col in features_info["ordinal"]:
             df[col] = df[col].cat.remove_unused_categories()
 
+        # Correct order of 'ai_damage' categories
+        df.ai_damage = df.ai_damage.cat.reorder_categories(["Nije oštećen", "Oštećen - u voznom stanju", "Oštećen - nije u voznom stanju"])
+
         modus_strat_cols = ["ai_engine_emission_class", "ai_damage"]
         cols_nan_strategy["modus"].extend(modus_strat_cols)
 

@@ -131,7 +131,7 @@ def load_dataset_and_metadata(
         cols_nan_strategy: Dict[str, List[str]] = init_cols_nan_strategy()
         try:
             with open(
-                file=f"{path}/{file_name}_cols_nan_strategy.json", mode="w"
+                file=f"{path}/{file_name}_cols_nan_strategy.json", mode="r"
             ) as file:
                 cols_nan_strategy = json.load(file)
         except:
@@ -139,7 +139,7 @@ def load_dataset_and_metadata(
 
         idx_to_remove: List[int] = []
         try:
-            with open(file=f"{path}/{file_name}_idx_to_remove.json", mode="w") as file:
+            with open(file=f"{path}/{file_name}_idx_to_remove.json", mode="r") as file:
                 idx_to_remove = json.load(file)
         except:
             pass
@@ -207,7 +207,9 @@ def test_cols_nan_strategy_with_features_info(
             continue
         all_feats.extend(features_info[key])
 
-    all_feats = [col for col in all_feats if col not in features_info["features_to_delete"]]
+    all_feats = [
+        col for col in all_feats if col not in features_info["features_to_delete"]
+    ]
 
     # Columns nan strategy all columns list
     cns_list = []
