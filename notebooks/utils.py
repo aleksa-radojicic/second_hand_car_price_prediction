@@ -5,6 +5,7 @@ import os
 from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from IPython.core.display import Markdown
 from IPython.core.display_functions import display
@@ -13,6 +14,7 @@ from scipy import stats
 from src import config
 from src.config import FeaturesInfo
 from src.utils import init_cols_nan_strategy
+import seaborn as sns
 
 CF_PREFIX = "cf_"
 NB_SUFFIX = "_nb"
@@ -145,6 +147,53 @@ def load_dataset_and_metadata(
             pass
 
         return data, metadata, cols_nan_strategy, idx_to_remove
+
+
+def plot_anova_importance(
+    anova_scores: pd.DataFrame,
+    title: str = "ANOVA",
+    figsize: tuple[int, int] = (20, 10),
+):
+    fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
+
+    sns.barplot(x=anova_scores.scores, y=anova_scores.index.values, ax=ax)
+    plt.close()
+    ax.bar_label(ax.containers[0])
+
+    fig.suptitle(title, fontsize=30)
+    display(fig)
+    return ax
+
+
+def plot_correlation_heatmap(corr: pd.DataFrame):
+    _, ax = plt.subplots(figsize=(13, 7))
+
+    # Upper triangular heatmap of correlations with annotations
+    sns.heatmap(corr, annot=True, mask=np.triu(corr), fmt=".2f", ax=ax)
+
+    return ax
+
+
+def plot_bar_correlations(corr: pd.Series, colors: list[str], by: str):
+    fig, ax = plt.subplots()
+    ax: plt.Axes
+    sns.barplot(
+        x=corr.abs(),
+        y=corr.index,
+        hue=colors,
+        legend=True,
+        ax=ax,
+    )
+    plt.close()
+    ax.set_ylabel("")
+    ax.set_title(f"Correlation of numerical features with '{by}'")
+    # ax.bar_label(labels=[np.round(val.get_label(), decimals=2) for val in ax.containers[0]])
+    # ax.bar_label(labels=ax.containers[1])
+    for bars in ax.containers:
+        ax.bar_label(bars) # type: ignore
+    display(fig)
+
+    return ax
 
 
 def test_features_info_duplicates(features_info: FeaturesInfo):
