@@ -120,6 +120,22 @@ class MACleaner:
         return df, features_info, cols_nan_strategy, idx_to_remove
 
     @preprocess_init
+    def ma_finalize(
+        self,
+        df: pd.DataFrame,
+        features_info: FeaturesInfo,
+        cols_nan_strategy: Dict[str, List[str]],
+        idx_to_remove: List[int],
+    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+
+        features_info["features_to_delete"].remove("gi_battery_capacity")
+        features_info["features_to_delete"].remove("ai_range_on_full_battery_km")
+
+        cols_nan_strategy["const_0"].extend(["gi_battery_capacity", "ai_range_on_full_battery_km"])
+
+        return df, features_info, cols_nan_strategy, idx_to_remove
+
+    @preprocess_init
     def clean(self, df: pd.DataFrame) -> pd.DataFrame:
         features_info = self.features_info
         cols_nan_strategy = self.cols_nan_strategy
@@ -148,6 +164,12 @@ class MACleaner:
             idx_to_remove=idx_to_remove,
         )
         df, features_info, cols_nan_strategy, idx_to_remove = self.ma_oldtimers(
+            df=df,
+            features_info=features_info,
+            cols_nan_strategy=cols_nan_strategy,
+            idx_to_remove=idx_to_remove,
+        )
+        df, features_info, cols_nan_strategy, idx_to_remove = self.ma_finalize(
             df=df,
             features_info=features_info,
             cols_nan_strategy=cols_nan_strategy,
