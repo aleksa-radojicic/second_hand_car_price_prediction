@@ -1,8 +1,7 @@
 import collections
 import inspect
-import json
 import os
-from typing import Dict, List, Tuple
+from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,8 +13,8 @@ from scipy import stats
 
 from src import config
 from src.config import FeaturesInfo
-from src.utils import (ColsNanStrategy, Dataset, IdxToRemove, Metadata,
-                       init_cols_nan_strategy)
+from src.utils import (ColsNanStrategy, Dataset, Metadata, load_dataset,
+                       load_metadata, save_dataset, save_metadata)
 
 CF_PREFIX = "cf_"
 NB_SUFFIX = "_nb"
@@ -103,59 +102,19 @@ def get_value_counts_freq_with_perc(df, column):
     return result
 
 
-def save_dataset_artifact(file_name: str, path: str, dataset: Dataset) -> None:
-    dataset.to_pickle(path=f"{path}/{file_name}_df.pkl")
-
-
-def save_metadata_artifact(file_name: str, path: str, metadata: Metadata) -> None:
-    with open(file=f"{path}/{file_name}_features_info.json", mode="w") as file:
-        json.dump(metadata.features_info, file, indent=4)
-
-    with open(file=f"{path}/{file_name}_cols_nan_strategy.json", mode="w") as file:
-        json.dump(metadata.cols_nan_strategy, file, indent=4)
-
-    with open(file=f"{path}/{file_name}_idx_to_remove.json", mode="w") as file:
-        json.dump(metadata.idx_to_remove, file, indent=4)
-
-
-def load_dataset_artifact(file_name: str, path: str) -> Dataset:
-    dataset = pd.read_pickle(f"{path}/{file_name}_df.pkl")
-    return dataset
-
-
-def load_metadata_artifact(file_name: str, path: str) -> Metadata:
-    features_info: FeaturesInfo
-
-    with open(file=f"{path}/{file_name}_features_info.json", mode="r") as file:
-        features_info = json.load(file)
-
-    idx_to_remove: IdxToRemove
-
-    with open(file=f"{path}/{file_name}_idx_to_remove.json", mode="r") as file:
-        idx_to_remove = json.load(file)
-
-    cols_nan_strategy: ColsNanStrategy
-
-    with open(file=f"{path}/{file_name}_cols_nan_strategy.json", mode="r") as file:
-        cols_nan_strategy = json.load(file)
-
-    metadata = Metadata(features_info, cols_nan_strategy, idx_to_remove)
-    return metadata
-
-
 def save_artifacts(
     file_name: str,
     path: str,
     dataset: Dataset,
     metadata: Metadata,
 ):
-    save_dataset_artifact(file_name, path, dataset)
-    save_metadata_artifact(file_name, path, metadata)
+    save_dataset(file_name, path, dataset)
+    save_metadata(file_name, path, metadata)
 
 
 def load_artifacts(file_name: str, path: str) -> Tuple[Dataset, Metadata]:
-    dataset = load_dataset_artifact(file_name, path)
-    metadata = load_metadata_artifact(file_name, path)
+    dataset = load_dataset(file_name, path)
+    metadata = load_metadata(file_name, path)
 
     return dataset, metadata
 

@@ -1,5 +1,6 @@
 import copy
 import functools
+import json
 import os
 import pickle
 from dataclasses import dataclass, field
@@ -57,6 +58,13 @@ class Metadata:
     features_info: FeaturesInfo = field(default_factory=init_features_info)
     cols_nan_strategy: ColsNanStrategy = field(default_factory=init_cols_nan_strategy)
     idx_to_remove: IdxToRemove = field(default_factory=init_idx_to_remove)
+
+
+class MetadataEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Metadata):
+            return obj.__dict__
+        return super().default(obj)
 
 
 def pickle_object(file_path, obj):
@@ -117,3 +125,26 @@ def train_test_split_custom(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFram
         random_state=config.RANDOM_SEED,
     )
     return df_train, df_test
+
+
+def load_dataset(file_name: str, path: str) -> Dataset:
+    dataset = pd.read_pickle(f"{path}/{file_name}_df.pkl")
+    return dataset
+
+
+def load_metadata(file_name: str, path: str) -> Metadata:
+    metadata: Metadata
+
+    with open(file=f"{path}/{file_name}_metadata.json", mode="r") as file:
+        metadata_dict = json.load(file)
+        metadata = Metadata(**metadata_dict)
+    return metadata
+
+
+def save_dataset(file_name: str, path: str, dataset: Dataset) -> None:
+    dataset.to_pickle(path=f"{path}/{file_name}_df.pkl")
+
+
+def save_metadata(file_name: str, path: str, metadata: Metadata) -> None:
+    with open(file=f"{path}/{file_name}_metadata.json", mode="w") as file:
+        json.dump(metadata, file, cls=MetadataEncoder, indent=4)
