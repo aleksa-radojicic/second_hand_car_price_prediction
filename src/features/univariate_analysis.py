@@ -1,29 +1,25 @@
-from typing import Dict, List, Tuple
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
 
-from src.config import FeaturesInfo
-from src.utils import init_cols_nan_strategy, preprocess_init
+from src.utils import Dataset, Metadata, preprocess_init
 
 
 class UACleaner:
-    CF_PREFIX = "cf_"
+    CF_PREFIX: str = "cf_"
+    metadata: Metadata
 
-    cols_nan_strategy = init_cols_nan_strategy()
-    idx_to_remove: List[int] = []
-
-    def __init__(self, features_info: FeaturesInfo):
-        self.features_info = features_info
+    def __init__(self, metadata: Metadata):
+        self.metadata = metadata
 
     @preprocess_init
     def ua_nominal_features(
-        self,
-        df: pd.DataFrame,
-        features_info: FeaturesInfo,
-        cols_nan_strategy: Dict[str, List[str]],
-        idx_to_remove: List[int],
-    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+        self, df: Dataset, metadata: Metadata
+    ) -> Tuple[Dataset, Metadata]:
+        features_info = metadata.features_info
+        cols_nan_strategy = metadata.cols_nan_strategy
+
         # Drop empty categories
         for col in features_info["nominal"]:
             df[col] = df[col].cat.remove_unused_categories()
@@ -68,36 +64,43 @@ class UACleaner:
         cols_nan_strategy["const_unknown"].extend(constant_strat_cols)
         cols_nan_strategy["modus"].extend(modus_strat_cols)
 
-        return df, features_info, cols_nan_strategy, idx_to_remove
+        return df, metadata
 
     @preprocess_init
     def ua_ordinal_features(
-        self,
-        df: pd.DataFrame,
-        features_info: FeaturesInfo,
-        cols_nan_strategy: Dict[str, List[str]],
-        idx_to_remove: List[int],
-    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+        self, df: Dataset, metadata: Metadata
+    ) -> Tuple[Dataset, Metadata]:
+        features_info = metadata.features_info
+        cols_nan_strategy = metadata.cols_nan_strategy
+
         # Drop empty categories
         for col in features_info["ordinal"]:
             df[col] = df[col].cat.remove_unused_categories()
 
         # Correct order of 'ai_damage' categories
-        df.ai_damage = df.ai_damage.cat.reorder_categories(["Nije oštećen", "Oštećen - u voznom stanju", "Oštećen - nije u voznom stanju"])
+        df.ai_damage = df.ai_damage.cat.reorder_categories(
+            [
+                "Nije oštećen",
+                "Oštećen - u voznom stanju",
+                "Oštećen - nije u voznom stanju",
+            ]
+        )
 
         modus_strat_cols = ["ai_engine_emission_class", "ai_damage"]
         cols_nan_strategy["modus"].extend(modus_strat_cols)
 
-        return df, features_info, cols_nan_strategy, idx_to_remove
+        return df, metadata
 
     @preprocess_init
     def ua_numerical_features(
         self,
-        df: pd.DataFrame,
-        features_info: FeaturesInfo,
-        cols_nan_strategy: Dict[str, List[str]],
-        idx_to_remove: List[int],
-    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+        df: Dataset,
+        metadata: Metadata,
+    ) -> Tuple[Dataset, Metadata]:
+        features_info = metadata.features_info
+        cols_nan_strategy = metadata.cols_nan_strategy
+        idx_to_remove = metadata.idx_to_remove
+
         const_strat_cols_zero = ["listing_followers_no"]
 
         # Drop 'gi_battery_capacity' (too many zero values)
@@ -132,16 +135,17 @@ class UACleaner:
         cols_nan_strategy["const_0"].extend(const_strat_cols_zero)
         cols_nan_strategy["median"].extend(median_strat_cols)
 
-        return df, features_info, cols_nan_strategy, idx_to_remove
+        return df, metadata
 
     @preprocess_init
     def ua_binary_features(
         self,
-        df: pd.DataFrame,
-        features_info: FeaturesInfo,
-        cols_nan_strategy: Dict[str, List[str]],
-        idx_to_remove: List[int],
-    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+        df: Dataset,
+        metadata: Metadata,
+    ) -> Tuple[Dataset, Metadata]:
+        features_info = metadata.features_info
+        cols_nan_strategy = metadata.cols_nan_strategy
+
         cols_scheduled_for_deletion = [
             "e_Fabrički_ugrađeno_dečije_sedište",
             "e_Volan_u_kombinaciji_drvo_ili_koža",
@@ -164,16 +168,17 @@ class UACleaner:
 
         features_info["features_to_delete"].extend(cols_scheduled_for_deletion)
 
-        return df, features_info, cols_nan_strategy, idx_to_remove
+        return df, metadata
 
     @preprocess_init
     def ua_other_features(
         self,
-        df: pd.DataFrame,
-        features_info: FeaturesInfo,
-        cols_nan_strategy: Dict[str, List[str]],
-        idx_to_remove: List[int],
-    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+        df: Dataset,
+        metadata: Metadata,
+    ) -> Tuple[Dataset, Metadata]:
+        features_info = metadata.features_info
+        cols_nan_strategy = metadata.cols_nan_strategy
+
         # Subset of other columns
         other_columns = ["gi_certified", "ai_registered_until"]
         today_date = np.datetime64("2024-01")
@@ -194,48 +199,17 @@ class UACleaner:
             features_info["other"].remove(col)
         features_info["numerical"].extend(other_columns)
 
-        return df, features_info, cols_nan_strategy, idx_to_remove
+        return df, metadata
 
     @preprocess_init
-    def clean(self, df: pd.DataFrame) -> pd.DataFrame:
-        features_info = self.features_info
-        cols_nan_strategy = self.cols_nan_strategy
-        idx_to_remove = self.idx_to_remove
+    def clean(self, df: Dataset) -> Dataset:
+        metadata = self.metadata
 
-        df, features_info, cols_nan_strategy, idx_to_remove = self.ua_nominal_features(
-            df=df,
-            features_info=features_info,
-            cols_nan_strategy=cols_nan_strategy,
-            idx_to_remove=idx_to_remove,
-        )
-        df, features_info, cols_nan_strategy, idx_to_remove = self.ua_ordinal_features(
-            df=df,
-            features_info=features_info,
-            cols_nan_strategy=cols_nan_strategy,
-            idx_to_remove=idx_to_remove,
-        )
-        df, features_info, cols_nan_strategy, idx_to_remove = (
-            self.ua_numerical_features(
-                df=df,
-                features_info=features_info,
-                cols_nan_strategy=cols_nan_strategy,
-                idx_to_remove=idx_to_remove,
-            )
-        )
-        df, features_info, cols_nan_strategy, idx_to_remove = self.ua_binary_features(
-            df=df,
-            features_info=features_info,
-            cols_nan_strategy=cols_nan_strategy,
-            idx_to_remove=idx_to_remove,
-        )
-        df, features_info, cols_nan_strategy, idx_to_remove = self.ua_other_features(
-            df=df,
-            features_info=features_info,
-            cols_nan_strategy=cols_nan_strategy,
-            idx_to_remove=idx_to_remove,
-        )
+        df, metadata = self.ua_nominal_features(df=df, metadata=metadata)
+        df, metadata = self.ua_ordinal_features(df=df, metadata=metadata)
+        df, metadata = self.ua_numerical_features(df=df, metadata=metadata)
+        df, metadata = self.ua_binary_features(df=df, metadata=metadata)
+        df, metadata = self.ua_other_features(df=df, metadata=metadata)
 
-        self.features_info = features_info
-        self.cols_nan_strategy = cols_nan_strategy
-        self.idx_to_remove = idx_to_remove
+        self.metadata = metadata
         return df

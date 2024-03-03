@@ -14,7 +14,7 @@ from scipy import stats
 
 from src import config
 from src.config import FeaturesInfo
-from src.utils import (ColsNanStrategy, Dataset, Metadata,
+from src.utils import (ColsNanStrategy, Dataset, IdxToRemove, Metadata,
                        init_cols_nan_strategy)
 
 CF_PREFIX = "cf_"
@@ -118,6 +118,31 @@ def save_metadata_artifact(file_name: str, path: str, metadata: Metadata) -> Non
         json.dump(metadata.idx_to_remove, file, indent=4)
 
 
+def load_dataset_artifact(file_name: str, path: str) -> Dataset:
+    dataset = pd.read_pickle(f"{path}/{file_name}_df.pkl")
+    return dataset
+
+
+def load_metadata_artifact(file_name: str, path: str) -> Metadata:
+    features_info: FeaturesInfo
+
+    with open(file=f"{path}/{file_name}_features_info.json", mode="r") as file:
+        features_info = json.load(file)
+
+    idx_to_remove: IdxToRemove
+
+    with open(file=f"{path}/{file_name}_idx_to_remove.json", mode="r") as file:
+        idx_to_remove = json.load(file)
+
+    cols_nan_strategy: ColsNanStrategy
+
+    with open(file=f"{path}/{file_name}_cols_nan_strategy.json", mode="r") as file:
+        cols_nan_strategy = json.load(file)
+
+    metadata = Metadata(features_info, cols_nan_strategy, idx_to_remove)
+    return metadata
+
+
 def save_artifacts(
     file_name: str,
     path: str,
@@ -128,30 +153,11 @@ def save_artifacts(
     save_metadata_artifact(file_name, path, metadata)
 
 
-def load_dataset_and_metadata(
-    file_name: str, path: str
-) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
-    with open(file=f"{path}/{file_name}_features_info.json", mode="r") as file:
-        metadata: FeaturesInfo = json.load(file)
-        data = pd.read_pickle(f"{path}/{file_name}_df.pkl")
+def load_artifacts(file_name: str, path: str) -> Tuple[Dataset, Metadata]:
+    dataset = load_dataset_artifact(file_name, path)
+    metadata = load_metadata_artifact(file_name, path)
 
-        cols_nan_strategy: Dict[str, List[str]] = init_cols_nan_strategy()
-        try:
-            with open(
-                file=f"{path}/{file_name}_cols_nan_strategy.json", mode="r"
-            ) as file:
-                cols_nan_strategy = json.load(file)
-        except:
-            pass
-
-        idx_to_remove: List[int] = []
-        try:
-            with open(file=f"{path}/{file_name}_idx_to_remove.json", mode="r") as file:
-                idx_to_remove = json.load(file)
-        except:
-            pass
-
-        return data, metadata, cols_nan_strategy, idx_to_remove
+    return dataset, metadata
 
 
 def plot_anova_importance(
@@ -236,7 +242,7 @@ def test_features_info_with_columns(df: Dataset, features_info: FeaturesInfo):
     assert set(all_feats) == set(all_cols), error_msg
 
 
-def test_cols_nan_strategy_duplicates(cols_nan_strategy: Dict[str, List[str]]):
+def test_cols_nan_strategy_duplicates(cols_nan_strategy: ColsNanStrategy):
     # Columns nan strategy all columns list
     cns_list = []
     for strategy in cols_nan_strategy:
