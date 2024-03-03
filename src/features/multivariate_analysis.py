@@ -11,15 +11,13 @@ class MACleaner:
     CF_PREFIX: str = "cf_"
     metadata: Metadata
 
-    def __init__(
-        self,
-        metadata: Metadata,
-    ):
+    def __init__(self, metadata: Metadata):
         self.metadata = metadata
 
+    @staticmethod
     @preprocess_init
     def ma_irregular_label_rows(
-        self, df: Dataset, metadata: Metadata
+        df: Dataset, metadata: Metadata
     ) -> Tuple[Dataset, Metadata]:
         idx_to_remove = metadata.idx_to_remove
 
@@ -34,9 +32,10 @@ class MACleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
     def ma_low_kilometerage_cars(
-        self, df: Dataset, metadata: Metadata
+        df: Dataset, metadata: Metadata
     ) -> Tuple[Dataset, Metadata]:
         idx_to_remove = metadata.idx_to_remove
 
@@ -52,10 +51,9 @@ class MACleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def ma_high_seats_cars(
-        self, df: Dataset, metadata: Metadata
-    ) -> Tuple[Dataset, Metadata]:
+    def ma_high_seats_cars(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         idx_to_remove = metadata.idx_to_remove
 
         high_seats_no = 5
@@ -71,12 +69,9 @@ class MACleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def ma_oldtimers(
-        self,
-        df: Dataset,
-        metadata: Metadata,
-    ) -> Tuple[Dataset, Metadata]:
+    def ma_oldtimers(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         idx_to_remove = metadata.idx_to_remove
 
         oldtimers = df.loc[
@@ -104,12 +99,9 @@ class MACleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def ma_finalize(
-        self,
-        df: Dataset,
-        metadata: Metadata,
-    ) -> Tuple[Dataset, Metadata]:
+    def ma_finalize(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
 
@@ -126,11 +118,11 @@ class MACleaner:
     def clean(self, df: Dataset) -> Dataset:
         metadata = self.metadata
 
-        df, metadata = self.ma_irregular_label_rows(df=df, metadata=metadata)
-        df, metadata = self.ma_low_kilometerage_cars(df=df, metadata=metadata)
-        df, metadata = self.ma_high_seats_cars(df=df, metadata=metadata)
-        df, metadata = self.ma_oldtimers(df=df, metadata=metadata)
-        df, metadata = self.ma_finalize(df=df, metadata=metadata)
+        df, metadata = MACleaner.ma_irregular_label_rows(df=df, metadata=metadata)
+        df, metadata = MACleaner.ma_low_kilometerage_cars(df=df, metadata=metadata)
+        df, metadata = MACleaner.ma_high_seats_cars(df=df, metadata=metadata)
+        df, metadata = MACleaner.ma_oldtimers(df=df, metadata=metadata)
+        df, metadata = MACleaner.ma_finalize(df=df, metadata=metadata)
 
         self.metadata = metadata
         return df

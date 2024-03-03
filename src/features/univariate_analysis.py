@@ -2,6 +2,7 @@ from typing import Tuple
 
 import numpy as np
 import pandas as pd
+from src.features.utils import PipelineMetadata
 
 from src.utils import Dataset, Metadata, preprocess_init
 
@@ -13,9 +14,10 @@ class UACleaner:
     def __init__(self, metadata: Metadata):
         self.metadata = metadata
 
+    @staticmethod
     @preprocess_init
     def ua_nominal_features(
-        self, df: Dataset, metadata: Metadata
+        df: Dataset, metadata: Metadata
     ) -> Tuple[Dataset, Metadata]:
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
@@ -66,9 +68,10 @@ class UACleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
     def ua_ordinal_features(
-        self, df: Dataset, metadata: Metadata
+        df: Dataset, metadata: Metadata
     ) -> Tuple[Dataset, Metadata]:
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
@@ -91,11 +94,10 @@ class UACleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
     def ua_numerical_features(
-        self,
-        df: Dataset,
-        metadata: Metadata,
+        df: Dataset, metadata: Metadata
     ) -> Tuple[Dataset, Metadata]:
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
@@ -137,12 +139,9 @@ class UACleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def ua_binary_features(
-        self,
-        df: Dataset,
-        metadata: Metadata,
-    ) -> Tuple[Dataset, Metadata]:
+    def ua_binary_features(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
 
@@ -170,12 +169,9 @@ class UACleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def ua_other_features(
-        self,
-        df: Dataset,
-        metadata: Metadata,
-    ) -> Tuple[Dataset, Metadata]:
+    def ua_other_features(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
 
@@ -205,11 +201,11 @@ class UACleaner:
     def clean(self, df: Dataset) -> Dataset:
         metadata = self.metadata
 
-        df, metadata = self.ua_nominal_features(df=df, metadata=metadata)
-        df, metadata = self.ua_ordinal_features(df=df, metadata=metadata)
-        df, metadata = self.ua_numerical_features(df=df, metadata=metadata)
-        df, metadata = self.ua_binary_features(df=df, metadata=metadata)
-        df, metadata = self.ua_other_features(df=df, metadata=metadata)
+        df, metadata = UACleaner.ua_nominal_features(df=df, metadata=metadata)
+        df, metadata = UACleaner.ua_ordinal_features(df=df, metadata=metadata)
+        df, metadata = UACleaner.ua_numerical_features(df=df, metadata=metadata)
+        df, metadata = UACleaner.ua_binary_features(df=df, metadata=metadata)
+        df, metadata = UACleaner.ua_other_features(df=df, metadata=metadata)
 
         self.metadata = metadata
         return df

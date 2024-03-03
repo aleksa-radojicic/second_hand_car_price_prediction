@@ -4,20 +4,20 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-from src.utils import Dataset, Metadata, init_features_info, preprocess_init
+from src.utils import Dataset, Metadata, preprocess_init
 
 
 class InitialCleaner:
-    CF_PREFIX = "cf_"
-
-    features_info = init_features_info()
+    CF_PREFIX: str = "cf_"
+    metadata: Metadata
 
     def __init__(self, metadata: Metadata):
         self.metadata = metadata
 
+    @staticmethod
     @preprocess_init
     def initial_preparation(
-        self, df: Dataset, metadata: Metadata
+        df: Dataset, metadata: Metadata
     ) -> Tuple[Dataset, Metadata]:
         # Transform column type to string
         df.columns = df.columns.astype("string")
@@ -47,16 +47,18 @@ class InitialCleaner:
 
         return df, metadata
 
-    def _get_feature_name(self) -> str:
+    @staticmethod
+    def _get_feature_name() -> str:
         """Returns name of the feature from the function that called this one."""
         function_name = inspect.stack()[1].function
-        feature_name = function_name[len(self.CF_PREFIX) :]
+        feature_name = function_name[len(InitialCleaner.CF_PREFIX) :]
 
         return feature_name
 
+    @staticmethod
     @preprocess_init
-    def cf_name(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
-        feature_name = self._get_feature_name()
+    def cf_name(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+        feature_name = InitialCleaner._get_feature_name()
 
         features_info = metadata.features_info
 
@@ -65,9 +67,10 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def cf_short_url(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
-        feature_name = self._get_feature_name()
+    def cf_short_url(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+        feature_name = InitialCleaner._get_feature_name()
 
         features_info = metadata.features_info
 
@@ -76,11 +79,10 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def cf_price(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
-        feature_name = self._get_feature_name()
-
-        features_info = metadata.features_info
+    def cf_price(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+        feature_name = InitialCleaner._get_feature_name()
 
         # Remove '.' from values and transform to numerical
         df[feature_name] = pd.to_numeric(
@@ -98,11 +100,12 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
     def cf_listing_followers_no(
-        self, df: Dataset, metadata: Metadata
+        df: Dataset, metadata: Metadata
     ) -> Tuple[Dataset, Metadata]:
-        feature_name = self._get_feature_name()
+        feature_name = InitialCleaner._get_feature_name()
 
         features_info = metadata.features_info
 
@@ -116,9 +119,10 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def cf_location(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
-        feature_name = self._get_feature_name()
+    def cf_location(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+        feature_name = InitialCleaner._get_feature_name()
 
         features_info = metadata.features_info
 
@@ -130,9 +134,10 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def cf_images_no(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
-        feature_name = self._get_feature_name()
+    def cf_images_no(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+        feature_name = InitialCleaner._get_feature_name()
 
         features_info = metadata.features_info
 
@@ -146,9 +151,10 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def cf_safety(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
-        feature_name = self._get_feature_name()
+    def cf_safety(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+        feature_name = InitialCleaner._get_feature_name()
         prefix = "s_"
 
         features_info = metadata.features_info
@@ -181,9 +187,10 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def cf_equipment(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
-        feature_name = self._get_feature_name()
+    def cf_equipment(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+        feature_name = InitialCleaner._get_feature_name()
         prefix = "e_"
 
         features_info = metadata.features_info
@@ -220,9 +227,10 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def cf_other(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
-        feature_name = self._get_feature_name()
+    def cf_other(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+        feature_name = InitialCleaner._get_feature_name()
         prefix = "o_"
 
         features_info = metadata.features_info
@@ -265,11 +273,10 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def cf_description(
-        self, df: Dataset, metadata: Metadata
-    ) -> Tuple[Dataset, Metadata]:
-        feature_name = self._get_feature_name()
+    def cf_description(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+        feature_name = InitialCleaner._get_feature_name()
 
         features_info = metadata.features_info
 
@@ -278,9 +285,10 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
     def c_general_informations(
-        self, df: Dataset, metadata: Metadata
+        df: Dataset, metadata: Metadata
     ) -> Tuple[Dataset, Metadata]:
         features_info = metadata.features_info
 
@@ -353,9 +361,10 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
     def c_additional_informations(
-        self, df: Dataset, metadata: Metadata
+        df: Dataset, metadata: Metadata
     ) -> Tuple[Dataset, Metadata]:
         features_info = metadata.features_info
 
@@ -464,22 +473,25 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
     def clean_individual_columns(
-        self, df: Dataset, metadata: Metadata
+        df: Dataset, metadata: Metadata
     ) -> Tuple[Dataset, Metadata]:
-        df, metadata = self.cf_name(df=df, metadata=metadata)
-        df, metadata = self.cf_short_url(df=df, metadata=metadata)
-        df, metadata = self.cf_price(df=df, metadata=metadata)
-        df, metadata = self.cf_listing_followers_no(df=df, metadata=metadata)
-        df, metadata = self.cf_location(df=df, metadata=metadata)
-        df, metadata = self.cf_images_no(df=df, metadata=metadata)
-        df, metadata = self.cf_safety(df=df, metadata=metadata)
-        df, metadata = self.cf_equipment(df=df, metadata=metadata)
-        df, metadata = self.cf_other(df=df, metadata=metadata)
-        df, metadata = self.cf_description(df=df, metadata=metadata)
-        df, metadata = self.c_general_informations(df=df, metadata=metadata)
-        df, metadata = self.c_additional_informations(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.cf_name(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.cf_short_url(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.cf_price(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.cf_listing_followers_no(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.cf_location(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.cf_images_no(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.cf_safety(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.cf_equipment(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.cf_other(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.cf_description(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.c_general_informations(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.c_additional_informations(
+            df=df, metadata=metadata
+        )
 
         return df, metadata
 
@@ -487,8 +499,8 @@ class InitialCleaner:
     def clean(self, df: Dataset) -> Dataset:
         metadata = self.metadata
 
-        df, metadata = self.initial_preparation(df=df, metadata=metadata)
-        df, metadata = self.clean_individual_columns(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.initial_preparation(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.clean_individual_columns(df=df, metadata=metadata)
 
         self.metadata = metadata
         return df
