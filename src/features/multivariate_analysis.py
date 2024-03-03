@@ -1,37 +1,28 @@
-from typing import Dict, List, Tuple
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
 from src import config
 
-from src.config import FeaturesInfo
-from src.utils import init_cols_nan_strategy, preprocess_init
+from src.utils import Dataset, Metadata, preprocess_init
 
 
 class MACleaner:
-    CF_PREFIX = "cf_"
-
-    cols_nan_strategy = init_cols_nan_strategy()
-    idx_to_remove: List[int] = []
+    CF_PREFIX: str = "cf_"
+    metadata: Metadata
 
     def __init__(
         self,
-        features_info: FeaturesInfo,
-        cols_nan_strategy: Dict[str, List[str]],
-        idx_to_remove: List[int],
+        metadata: Metadata,
     ):
-        self.features_info = features_info
-        self.cols_nan_strategy = cols_nan_strategy
-        self.idx_to_remove = idx_to_remove
+        self.metadata = metadata
 
     @preprocess_init
     def ma_irregular_label_rows(
-        self,
-        df: pd.DataFrame,
-        features_info: FeaturesInfo,
-        cols_nan_strategy: Dict[str, List[str]],
-        idx_to_remove: List[int],
-    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+        self, df: Dataset, metadata: Metadata
+    ) -> Tuple[Dataset, Metadata]:
+        idx_to_remove = metadata.idx_to_remove
+
         df_cars_equal_price_install_amt = df.loc[
             df[config.LABEL] == df.ai_installment_amount, :
         ]
@@ -41,16 +32,13 @@ class MACleaner:
 
         idx_to_remove.extend(df_cars_equal_price_install_amt.index.tolist())
 
-        return df, features_info, cols_nan_strategy, idx_to_remove
+        return df, metadata
 
     @preprocess_init
     def ma_low_kilometerage_cars(
-        self,
-        df: pd.DataFrame,
-        features_info: FeaturesInfo,
-        cols_nan_strategy: Dict[str, List[str]],
-        idx_to_remove: List[int],
-    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+        self, df: Dataset, metadata: Metadata
+    ) -> Tuple[Dataset, Metadata]:
+        idx_to_remove = metadata.idx_to_remove
 
         low_kilometerage_amount = 500
         low_kilometerage_cars = df.loc[
@@ -62,16 +50,13 @@ class MACleaner:
 
         idx_to_remove.extend(low_kilometerage_cars.index.tolist())
 
-        return df, features_info, cols_nan_strategy, idx_to_remove
+        return df, metadata
 
     @preprocess_init
     def ma_high_seats_cars(
-        self,
-        df: pd.DataFrame,
-        features_info: FeaturesInfo,
-        cols_nan_strategy: Dict[str, List[str]],
-        idx_to_remove: List[int],
-    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+        self, df: Dataset, metadata: Metadata
+    ) -> Tuple[Dataset, Metadata]:
+        idx_to_remove = metadata.idx_to_remove
 
         high_seats_no = 5
         high_seats = df.loc[df.ai_seats_no > high_seats_no, ["name", "ai_seats_no"]]
@@ -84,16 +69,16 @@ class MACleaner:
 
         idx_to_remove.extend(more_than_7_seats.index.tolist())
 
-        return df, features_info, cols_nan_strategy, idx_to_remove
+        return df, metadata
 
     @preprocess_init
     def ma_oldtimers(
         self,
-        df: pd.DataFrame,
-        features_info: FeaturesInfo,
-        cols_nan_strategy: Dict[str, List[str]],
-        idx_to_remove: List[int],
-    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+        df: Dataset,
+        metadata: Metadata,
+    ) -> Tuple[Dataset, Metadata]:
+        idx_to_remove = metadata.idx_to_remove
+
         oldtimers = df.loc[
             df.o_Oldtimer,
             [
@@ -117,66 +102,35 @@ class MACleaner:
 
         idx_to_remove.extend(oldtimer_2_seats.index.tolist())
 
-        return df, features_info, cols_nan_strategy, idx_to_remove
+        return df, metadata
 
     @preprocess_init
     def ma_finalize(
         self,
-        df: pd.DataFrame,
-        features_info: FeaturesInfo,
-        cols_nan_strategy: Dict[str, List[str]],
-        idx_to_remove: List[int],
-    ) -> Tuple[pd.DataFrame, FeaturesInfo, Dict[str, List[str]], List[int]]:
+        df: Dataset,
+        metadata: Metadata,
+    ) -> Tuple[Dataset, Metadata]:
+        features_info = metadata.features_info
+        cols_nan_strategy = metadata.cols_nan_strategy
 
         features_info["features_to_delete"].remove("gi_battery_capacity")
         features_info["features_to_delete"].remove("ai_range_on_full_battery_km")
 
-        cols_nan_strategy["const_0"].extend(["gi_battery_capacity", "ai_range_on_full_battery_km"])
+        cols_nan_strategy["const_0"].extend(
+            ["gi_battery_capacity", "ai_range_on_full_battery_km"]
+        )
 
-        return df, features_info, cols_nan_strategy, idx_to_remove
+        return df, metadata
 
     @preprocess_init
-    def clean(self, df: pd.DataFrame) -> pd.DataFrame:
-        features_info = self.features_info
-        cols_nan_strategy = self.cols_nan_strategy
-        idx_to_remove = self.idx_to_remove
+    def clean(self, df: Dataset) -> Dataset:
+        metadata = self.metadata
 
-        df, features_info, cols_nan_strategy, idx_to_remove = (
-            self.ma_irregular_label_rows(
-                df=df,
-                features_info=features_info,
-                cols_nan_strategy=cols_nan_strategy,
-                idx_to_remove=idx_to_remove,
-            )
-        )
-        df, features_info, cols_nan_strategy, idx_to_remove = (
-            self.ma_low_kilometerage_cars(
-                df=df,
-                features_info=features_info,
-                cols_nan_strategy=cols_nan_strategy,
-                idx_to_remove=idx_to_remove,
-            )
-        )
-        df, features_info, cols_nan_strategy, idx_to_remove = self.ma_high_seats_cars(
-            df=df,
-            features_info=features_info,
-            cols_nan_strategy=cols_nan_strategy,
-            idx_to_remove=idx_to_remove,
-        )
-        df, features_info, cols_nan_strategy, idx_to_remove = self.ma_oldtimers(
-            df=df,
-            features_info=features_info,
-            cols_nan_strategy=cols_nan_strategy,
-            idx_to_remove=idx_to_remove,
-        )
-        df, features_info, cols_nan_strategy, idx_to_remove = self.ma_finalize(
-            df=df,
-            features_info=features_info,
-            cols_nan_strategy=cols_nan_strategy,
-            idx_to_remove=idx_to_remove,
-        )
+        df, metadata = self.ma_irregular_label_rows(df=df, metadata=metadata)
+        df, metadata = self.ma_low_kilometerage_cars(df=df, metadata=metadata)
+        df, metadata = self.ma_high_seats_cars(df=df, metadata=metadata)
+        df, metadata = self.ma_oldtimers(df=df, metadata=metadata)
+        df, metadata = self.ma_finalize(df=df, metadata=metadata)
 
-        self.features_info = features_info
-        self.cols_nan_strategy = cols_nan_strategy
-        self.idx_to_remove = idx_to_remove
+        self.metadata = metadata
         return df
