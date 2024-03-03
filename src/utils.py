@@ -67,6 +67,11 @@ class MetadataEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
+@dataclass
+class PipelineMetadata:
+    data: Metadata = field(default_factory=Metadata)
+
+
 def pickle_object(file_path, obj):
     try:
         dir_path = os.path.dirname(file_path)

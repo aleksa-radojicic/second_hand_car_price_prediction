@@ -4,15 +4,23 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-from src.utils import Dataset, Metadata, preprocess_init
+from src.utils import Dataset, Metadata, PipelineMetadata, preprocess_init
 
 
 class InitialCleaner:
     CF_PREFIX: str = "cf_"
-    metadata: Metadata
+    pipe_meta: PipelineMetadata
 
-    def __init__(self, metadata: Metadata):
-        self.metadata = metadata
+    def __init__(self, pipe_meta: PipelineMetadata):
+        self.pipe_meta = pipe_meta
+
+    @property
+    def metadata(self) -> Metadata:
+        return self.pipe_meta.data
+
+    @metadata.setter
+    def metadata(self, metadata):
+        self.pipe_meta.data = metadata
 
     @staticmethod
     @preprocess_init
