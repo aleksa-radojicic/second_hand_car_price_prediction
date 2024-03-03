@@ -4,8 +4,7 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-from src.config import FeaturesInfo
-from src.utils import init_features_info, preprocess_init
+from src.utils import Dataset, Metadata, init_features_info, preprocess_init
 
 
 class InitialCleaner:
@@ -13,10 +12,13 @@ class InitialCleaner:
 
     features_info = init_features_info()
 
+    def __init__(self, metadata: Metadata):
+        self.metadata = metadata
+
     @preprocess_init
     def initial_preparation(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+        self, df: Dataset, metadata: Metadata
+    ) -> Tuple[Dataset, Metadata]:
         # Transform column type to string
         df.columns = df.columns.astype("string")
 
@@ -43,7 +45,7 @@ class InitialCleaner:
         # Remove gi_fixed_price that is poorly scraped
         del df["gi_fixed_price"]
 
-        return df, features_info
+        return df, metadata
 
     def _get_feature_name(self) -> str:
         """Returns name of the feature from the function that called this one."""
@@ -53,32 +55,32 @@ class InitialCleaner:
         return feature_name
 
     @preprocess_init
-    def cf_name(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+    def cf_name(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         feature_name = self._get_feature_name()
+
+        features_info = metadata.features_info
 
         # Add 'name' to 'other' features
         features_info["other"].append(feature_name)
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
-    def cf_short_url(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+    def cf_short_url(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         feature_name = self._get_feature_name()
+
+        features_info = metadata.features_info
 
         # Add 'short_url' to 'other' features
         features_info["other"].append(feature_name)
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
-    def cf_price(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+    def cf_price(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         feature_name = self._get_feature_name()
+
+        features_info = metadata.features_info
 
         # Remove '.' from values and transform to numerical
         df[feature_name] = pd.to_numeric(
@@ -94,13 +96,15 @@ class InitialCleaner:
         # Remove cars that had price < 100
         df = df.drop(cars_price_less_than_100.index, axis=0)
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
     def cf_listing_followers_no(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+        self, df: Dataset, metadata: Metadata
+    ) -> Tuple[Dataset, Metadata]:
         feature_name = self._get_feature_name()
+
+        features_info = metadata.features_info
 
         # Transform to numerical
         df[feature_name] = pd.to_numeric(
@@ -110,13 +114,13 @@ class InitialCleaner:
         # Added 'listing_followers_no' to numerical features
         features_info["numerical"].append(feature_name)
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
-    def cf_location(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+    def cf_location(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         feature_name = self._get_feature_name()
+
+        features_info = metadata.features_info
 
         # Convert 'location' to categorical type (nominal)
         df[feature_name] = pd.Categorical(df[feature_name], ordered=False)
@@ -124,13 +128,13 @@ class InitialCleaner:
         # Add 'location' to 'nominal' features
         features_info["nominal"].append(feature_name)
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
-    def cf_images_no(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+    def cf_images_no(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         feature_name = self._get_feature_name()
+
+        features_info = metadata.features_info
 
         # Transformed to numerical
         df[feature_name] = pd.to_numeric(
@@ -140,14 +144,14 @@ class InitialCleaner:
         # Add 'images_no' to 'numerical' features
         features_info["numerical"].append(feature_name)
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
-    def cf_safety(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+    def cf_safety(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         feature_name = self._get_feature_name()
         prefix = "s_"
+
+        features_info = metadata.features_info
 
         # Create data frame with dummy columns
         df_safety_dummies = df[feature_name].str.get_dummies(sep=",").add_prefix(prefix)
@@ -175,14 +179,14 @@ class InitialCleaner:
         # Add all remaining safety columns to 'binary' features
         features_info["binary"].extend(safety_columns_fixed)
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
-    def cf_equipment(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+    def cf_equipment(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         feature_name = self._get_feature_name()
         prefix = "e_"
+
+        features_info = metadata.features_info
 
         # Create data frame with dummy columns
         df_equipment_dummies = (
@@ -214,14 +218,14 @@ class InitialCleaner:
         # Add all remaining equipment columns to 'binary' features
         features_info["binary"].extend(equipment_columns_fixed)
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
-    def cf_other(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+    def cf_other(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         feature_name = self._get_feature_name()
         prefix = "o_"
+
+        features_info = metadata.features_info
 
         # Create data frame with dummy columns
         df_other_dummies = df[feature_name].str.get_dummies(sep=",").add_prefix(prefix)
@@ -259,23 +263,27 @@ class InitialCleaner:
         # Add all remaining other columns to 'binary' features
         features_info["binary"].extend(other_columns_fixed)
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
     def cf_description(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+        self, df: Dataset, metadata: Metadata
+    ) -> Tuple[Dataset, Metadata]:
         feature_name = self._get_feature_name()
+
+        features_info = metadata.features_info
 
         # Add 'description' to 'other' features
         features_info["other"].append(feature_name)
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
     def c_general_informations(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+        self, df: Dataset, metadata: Metadata
+    ) -> Tuple[Dataset, Metadata]:
+        features_info = metadata.features_info
+
         pd.set_option("mode.chained_assignment", None)
 
         # Delete new cars
@@ -343,12 +351,13 @@ class InitialCleaner:
 
         pd.set_option("mode.chained_assignment", "warn")
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
     def c_additional_informations(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
+        self, df: Dataset, metadata: Metadata
+    ) -> Tuple[Dataset, Metadata]:
+        features_info = metadata.features_info
 
         pd.set_option("mode.chained_assignment", None)
 
@@ -453,40 +462,33 @@ class InitialCleaner:
 
         pd.set_option("mode.chained_assignment", "warn")
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
     def clean_individual_columns(
-        self, df: pd.DataFrame, features_info: FeaturesInfo
-    ) -> Tuple[pd.DataFrame, FeaturesInfo]:
-        df, features_info = self.cf_name(df=df, features_info=features_info)
-        df, features_info = self.cf_short_url(df=df, features_info=features_info)
-        df, features_info = self.cf_price(df=df, features_info=features_info)
-        df, features_info = self.cf_listing_followers_no(
-            df=df, features_info=features_info
-        )
-        df, features_info = self.cf_location(df=df, features_info=features_info)
-        df, features_info = self.cf_images_no(df=df, features_info=features_info)
-        df, features_info = self.cf_safety(df=df, features_info=features_info)
-        df, features_info = self.cf_equipment(df=df, features_info=features_info)
-        df, features_info = self.cf_other(df=df, features_info=features_info)
-        df, features_info = self.cf_description(df=df, features_info=features_info)
-        df, features_info = self.c_general_informations(
-            df=df, features_info=features_info
-        )
-        df, features_info = self.c_additional_informations(
-            df=df, features_info=features_info
-        )
+        self, df: Dataset, metadata: Metadata
+    ) -> Tuple[Dataset, Metadata]:
+        df, metadata = self.cf_name(df=df, metadata=metadata)
+        df, metadata = self.cf_short_url(df=df, metadata=metadata)
+        df, metadata = self.cf_price(df=df, metadata=metadata)
+        df, metadata = self.cf_listing_followers_no(df=df, metadata=metadata)
+        df, metadata = self.cf_location(df=df, metadata=metadata)
+        df, metadata = self.cf_images_no(df=df, metadata=metadata)
+        df, metadata = self.cf_safety(df=df, metadata=metadata)
+        df, metadata = self.cf_equipment(df=df, metadata=metadata)
+        df, metadata = self.cf_other(df=df, metadata=metadata)
+        df, metadata = self.cf_description(df=df, metadata=metadata)
+        df, metadata = self.c_general_informations(df=df, metadata=metadata)
+        df, metadata = self.c_additional_informations(df=df, metadata=metadata)
 
-        return df, features_info
+        return df, metadata
 
     @preprocess_init
-    def clean(self, df: pd.DataFrame) -> pd.DataFrame:
-        features_info = self.features_info
+    def clean(self, df: Dataset) -> Dataset:
+        metadata = self.metadata
 
-        df, features_info = self.initial_preparation(df=df, features_info=features_info)
-        df, features_info = self.clean_individual_columns(
-            df=df, features_info=features_info
-        )
-        self.features_info = features_info
+        df, metadata = self.initial_preparation(df=df, metadata=metadata)
+        df, metadata = self.clean_individual_columns(df=df, metadata=metadata)
+
+        self.metadata = metadata
         return df

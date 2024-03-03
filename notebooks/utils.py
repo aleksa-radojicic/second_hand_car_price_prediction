@@ -2,19 +2,20 @@ import collections
 import inspect
 import json
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 from IPython.core.display import Markdown
 from IPython.core.display_functions import display
 from scipy import stats
 
 from src import config
 from src.config import FeaturesInfo
-from src.utils import init_cols_nan_strategy
-import seaborn as sns
+from src.utils import (ColsNanStrategy, Dataset, Metadata,
+                       init_cols_nan_strategy)
 
 CF_PREFIX = "cf_"
 NB_SUFFIX = "_nb"
@@ -102,25 +103,29 @@ def get_value_counts_freq_with_perc(df, column):
     return result
 
 
+def save_dataset_artifact(file_name: str, path: str, dataset: Dataset) -> None:
+    dataset.to_pickle(path=f"{path}/{file_name}_df.pkl")
+
+
+def save_metadata_artifact(file_name: str, path: str, metadata: Metadata) -> None:
+    with open(file=f"{path}/{file_name}_features_info.json", mode="w") as file:
+        json.dump(metadata.features_info, file, indent=4)
+
+    with open(file=f"{path}/{file_name}_cols_nan_strategy.json", mode="w") as file:
+        json.dump(metadata.cols_nan_strategy, file, indent=4)
+
+    with open(file=f"{path}/{file_name}_idx_to_remove.json", mode="w") as file:
+        json.dump(metadata.idx_to_remove, file, indent=4)
+
+
 def save_artifacts(
     file_name: str,
     path: str,
-    dataset: pd.DataFrame,
-    metadata: FeaturesInfo,
-    cols_nan_strategy: Optional[Dict[str, List[str]]] = None,
-    idx_to_remove: Optional[List[int]] = None,
+    dataset: Dataset,
+    metadata: Metadata,
 ):
-    with open(file=f"{path}/{file_name}_features_info.json", mode="w") as file:
-        json.dump(metadata, file, indent=4)
-    dataset.to_pickle(path=f"{path}/{file_name}_df.pkl")
-
-    if cols_nan_strategy:
-        with open(file=f"{path}/{file_name}_cols_nan_strategy.json", mode="w") as file:
-            json.dump(cols_nan_strategy, file, indent=4)
-
-    if idx_to_remove:
-        with open(file=f"{path}/{file_name}_idx_to_remove.json", mode="w") as file:
-            json.dump(idx_to_remove, file, indent=4)
+    save_dataset_artifact(file_name, path, dataset)
+    save_metadata_artifact(file_name, path, metadata)
 
 
 def load_dataset_and_metadata(
@@ -190,7 +195,7 @@ def plot_bar_correlations(corr: pd.Series, colors: list[str], by: str):
     # ax.bar_label(labels=[np.round(val.get_label(), decimals=2) for val in ax.containers[0]])
     # ax.bar_label(labels=ax.containers[1])
     for bars in ax.containers:
-        ax.bar_label(bars) # type: ignore
+        ax.bar_label(bars)  # type: ignore
     display(fig)
 
     return ax
@@ -215,7 +220,7 @@ def test_features_info_duplicates(features_info: FeaturesInfo):
         )
 
 
-def test_features_info_with_columns(df: pd.DataFrame, features_info: FeaturesInfo):
+def test_features_info_with_columns(df: Dataset, features_info: FeaturesInfo):
     all_feats = []
     for key in features_info:
         if key == "features_to_delete":
@@ -248,7 +253,7 @@ def test_cols_nan_strategy_duplicates(cols_nan_strategy: Dict[str, List[str]]):
 
 
 def test_cols_nan_strategy_with_features_info(
-    cols_nan_strategy: Dict[str, List[str]], features_info: FeaturesInfo
+    cols_nan_strategy: ColsNanStrategy, features_info: FeaturesInfo
 ):
     all_feats = []
     for key in features_info:

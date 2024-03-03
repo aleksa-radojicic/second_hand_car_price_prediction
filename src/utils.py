@@ -2,12 +2,19 @@ import copy
 import functools
 import os
 import pickle
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Tuple
 
 import pandas as pd
-
-from src.config import FeaturesInfo
+from sklearn.model_selection import train_test_split
 from typeguard import check_type
+
+from src import config
+from src.config import FeaturesInfo
+from src.logger import logging
+
+ColsNanStrategy = Dict[str, List[str]]
+IdxToRemove = List[int]
 
 
 def init_features_info() -> FeaturesInfo:
@@ -26,7 +33,7 @@ def init_features_info() -> FeaturesInfo:
     return features_info
 
 
-def init_cols_nan_strategy() -> Dict[str, List[str]]:
+def init_cols_nan_strategy() -> ColsNanStrategy:
     columns_nan_strategy = {
         "mean": [],
         "median": [],
@@ -36,6 +43,20 @@ def init_cols_nan_strategy() -> Dict[str, List[str]]:
         "const_false": [],
     }
     return columns_nan_strategy
+
+
+def init_idx_to_remove() -> IdxToRemove:
+    return []
+
+
+Dataset = pd.DataFrame
+
+
+@dataclass
+class Metadata:
+    features_info: FeaturesInfo = field(default_factory=init_features_info)
+    cols_nan_strategy: ColsNanStrategy = field(default_factory=init_cols_nan_strategy)
+    idx_to_remove: IdxToRemove = field(default_factory=init_idx_to_remove)
 
 
 def pickle_object(file_path, obj):
@@ -70,18 +91,29 @@ def preprocess_init(func: Callable) -> Callable:
         if "df" in kwargs and isinstance(kwargs["df"], pd.DataFrame):
             kwargs["df"] = kwargs["df"].copy()
 
-        if "features_info" in kwargs and check_type(
-            kwargs["features_info"], FeaturesInfo
-        ):
-            kwargs["features_info"] = copy.deepcopy(kwargs["features_info"])
+        metadata_name = Metadata.__name__.lower()
 
-        if "cols_nan_strategy" in kwargs:
-            kwargs["cols_nan_strategy"] = copy.deepcopy(kwargs["cols_nan_strategy"])
-
-        if "idx_to_remove" in kwargs:
-            kwargs["idx_to_remove"] = copy.deepcopy(kwargs["idx_to_remove"])
+        if metadata_name in kwargs and check_type(kwargs[metadata_name], Metadata):
+            kwargs[metadata_name] = copy.deepcopy(kwargs[metadata_name])
 
         result = func(*args, **kwargs)
         return result
 
     return wrapper
+
+
+def log_feature_info_dict(features_info: FeaturesInfo, title: str, verbose: int):
+    if verbose > 1:
+        features_info_str = ""
+        for k, v in features_info.items():
+            features_info_str += f"{k}: {v}\n"
+        logging.info(f"FeaturesInfo after {title}:\n" + features_info_str)
+
+
+def train_test_split_custom(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    df_train, df_test = train_test_split(
+        df,
+        test_size=config.TEST_SIZE,
+        random_state=config.RANDOM_SEED,
+    )
+    return df_train, df_test
