@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+import os
 from pathlib import Path
+from typing import Tuple
 
 import click
 import pandas as pd
@@ -8,30 +10,37 @@ from dotenv import find_dotenv, load_dotenv
 from src import config
 from src.db.broker import DbBroker
 from src.logger import logging
-from src.utils import init_features_info, json_object, pickle_object
+from src.utils import Dataset, Metadata, save_dataset, save_metadata
+
+
+class DatasetMaker:
+    def __init__(self, output_filepath):
+        self.output_filepath = output_filepath
+
+    def start(self) -> Tuple[Dataset, Metadata]:
+        logging.info("Making raw data from the MySQL database...")
+
+        dataset: pd.DataFrame = get_dataset_from_db()
+        metadata = Metadata()
+
+        output_filename = "raw"
+
+        save_dataset(output_filename, self.output_filepath, dataset)
+        save_metadata(output_filename, self.output_filepath, metadata)
+
+        logging.info("Successfully made raw data from the MySQL database.")
+
+        return dataset, metadata
 
 
 @click.command()
 @click.argument("output_filepath", type=click.Path())
 def main(output_filepath):
-    """Runs data processing scripts to turn raw data from (../raw) into
-    cleaned data ready to be analyzed (saved in ../processed).
-    """
-    logging.info("Making raw data from the MySQL database...")
-
-    dataset: pd.DataFrame = get_dataset_from_db()
-    metadata: config.FeaturesInfo = get_metadata()
-
-    output_filename = "data.pickle"
-    output_meta_filename = "metadata.json"
-
-    pickle_object(f"{output_filepath}/{output_filename}", dataset)
-    json_object(f"{output_filepath}/meta/{output_meta_filename}", metadata)
-
-    logging.info("Successfully made raw data from the MySQL database.")
+    dataset_maker = DatasetMaker(output_filepath)
+    dataset_maker.start()
 
 
-def get_dataset_from_db() -> pd.DataFrame:
+def get_dataset_from_db() -> Dataset:
     db_broker = DbBroker()
     df = pd.read_sql(
         db_broker.get_all_listings_statement(),
@@ -42,11 +51,6 @@ def get_dataset_from_db() -> pd.DataFrame:
     df = df.rename(str, axis="columns")
     db_broker.engine.dispose()
     return df
-
-
-def get_metadata() -> config.FeaturesInfo:
-    features_info = init_features_info()
-    return features_info
 
 
 if __name__ == "__main__":
