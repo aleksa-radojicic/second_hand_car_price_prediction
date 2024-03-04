@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -10,9 +10,11 @@ from src.utils import Dataset, Metadata, PipelineMetadata, preprocess_init
 class MACleaner:
     CF_PREFIX: str = "cf_"
     pipe_meta: PipelineMetadata
+    cached_metadata: Optional[Metadata]
 
     def __init__(self, pipe_meta: PipelineMetadata):
         self.pipe_meta = pipe_meta
+        self.cached_metadata = None
 
     @property
     def metadata(self) -> Metadata:
@@ -124,7 +126,10 @@ class MACleaner:
 
     @preprocess_init
     def clean(self, df: Dataset) -> Dataset:
-        metadata = self.metadata
+        if not self.cached_metadata:
+            self.cached_metadata = self.metadata
+
+        metadata = self.cached_metadata
 
         df, metadata = MACleaner.ma_irregular_label_rows(df=df, metadata=metadata)
         df, metadata = MACleaner.ma_low_kilometerage_cars(df=df, metadata=metadata)

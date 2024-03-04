@@ -1,5 +1,5 @@
 import inspect
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -10,9 +10,11 @@ from src.utils import Dataset, Metadata, PipelineMetadata, preprocess_init
 class InitialCleaner:
     CF_PREFIX: str = "cf_"
     pipe_meta: PipelineMetadata
+    cached_metadata: Optional[Metadata]
 
     def __init__(self, pipe_meta: PipelineMetadata):
         self.pipe_meta = pipe_meta
+        self.cached_metadata = None
 
     @property
     def metadata(self) -> Metadata:
@@ -505,7 +507,10 @@ class InitialCleaner:
 
     @preprocess_init
     def clean(self, df: Dataset) -> Dataset:
-        metadata = self.metadata
+        if not self.cached_metadata:
+            self.cached_metadata = self.metadata
+
+        metadata = self.cached_metadata
 
         df, metadata = InitialCleaner.initial_preparation(df=df, metadata=metadata)
         df, metadata = InitialCleaner.clean_individual_columns(df=df, metadata=metadata)
