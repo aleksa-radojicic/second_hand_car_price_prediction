@@ -57,3 +57,8 @@ def get_function_to_log(severity: SeverityMode):
     log_function_name = logging.getLevelName(severity).lower()
     function_to_log = getattr(logging, log_function_name, logging.error)
     return function_to_log
+
+
+def log_message(message, verbose=1):
+    if verbose > 0:
+        logging.info(message)

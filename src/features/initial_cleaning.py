@@ -4,17 +4,21 @@ from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from src.utils import Dataset, Metadata, PipelineMetadata, preprocess_init
+from src.logger import log_message
+from src.utils import (Dataset, Metadata, PipelineMetadata,
+                       log_feature_info_dict, preprocess_init)
 
 
 class InitialCleaner:
     CF_PREFIX: str = "cf_"
     pipe_meta: PipelineMetadata
     cached_metadata: Optional[Metadata]
+    verbose: int
 
-    def __init__(self, pipe_meta: PipelineMetadata):
+    def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
         self.pipe_meta = pipe_meta
         self.cached_metadata = None
+        self.verbose = verbose
 
     @property
     def metadata(self) -> Metadata:
@@ -505,15 +509,31 @@ class InitialCleaner:
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def clean(self, df: Dataset) -> Dataset:
+    def clean(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+        df, metadata = InitialCleaner.initial_preparation(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.clean_individual_columns(df=df, metadata=metadata)
+        return df, metadata
+
+    @preprocess_init
+    def start(self, df: Dataset, y=None) -> Dataset:
+        log_message("Initial cleaning of the dataset started...", self.verbose)
+
         if not self.cached_metadata:
             self.cached_metadata = self.metadata
 
         metadata = self.cached_metadata
 
-        df, metadata = InitialCleaner.initial_preparation(df=df, metadata=metadata)
-        df, metadata = InitialCleaner.clean_individual_columns(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.clean(df=df, metadata=metadata)
+
+        log_feature_info_dict(
+            metadata.features_info,
+            "initial cleaning of the dataset",
+            self.verbose,
+        )
+
+        log_message("Initial cleaning of the dataset finished.", self.verbose)
 
         self.metadata = metadata
         return df
