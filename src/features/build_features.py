@@ -7,8 +7,8 @@ import src.features.initial_cleaning as ic
 import src.features.multivariate_analysis as ma
 import src.features.univariate_analysis as ua
 from src.data.make_dataset import DatasetMaker
-from src.features.utils import ColumnsMetadataDropper, ColumnsMetadataPrefixer
-from src.logger import logging
+from src.features.other_transformers import (CategoryTypesTransformer,
+                                             ColumnsDropper)
 from src.utils import (Dataset, Metadata, PipelineMetadata, preprocess_init,
                        train_test_split_custom)
 
@@ -33,21 +33,21 @@ class FeaturesBuilder:
     def make_pipeline(metadata: Metadata, verbose: int = 0) -> Pipeline:
         pipe_meta = PipelineMetadata(metadata)
 
-        ua_transformer = FunctionTransformer(ua.UACleaner(pipe_meta, verbose).start)
-        ma_transformer = FunctionTransformer(ma.MACleaner(pipe_meta, verbose).start)
-        dropper_transformer = FunctionTransformer(
-            ColumnsMetadataDropper(pipe_meta, verbose).start
-        )
-        prefixer_transformer = FunctionTransformer(
-            ColumnsMetadataPrefixer(pipe_meta, verbose).start
-        )
+        ft = FunctionTransformer
 
+        # Define transformers
+        ua_transformer = ft(ua.UACleaner(pipe_meta, verbose).start)
+        ma_transformer = ft(ma.MACleaner(pipe_meta, verbose).start)
+        columns_dropper = ft(ColumnsDropper(pipe_meta, verbose).start)
+        cat_handler = CategoryTypesTransformer(pipe_meta, verbose)
+
+        # Create pipeline
         data_transformation_pipeline = Pipeline(
             [
                 ("ua", ua_transformer),
                 ("ma", ma_transformer),
-                ("dropper", dropper_transformer),
-                ("prefixer", prefixer_transformer),
+                ("col_dropper", columns_dropper),
+                ("cat_handler", cat_handler),
             ]
         )
         data_transformation_pipeline.set_output(transform="pandas")

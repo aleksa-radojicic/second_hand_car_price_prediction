@@ -1,6 +1,8 @@
 import os
 from typing import Dict, List
 
+import numpy as np
+
 INDEX_PAGE_URL = "https://www.polovniautomobili.com"
 PROJECT_DIR = os.getcwd()
 DTYPE_BACKEND = "numpy_nullable"
@@ -8,6 +10,10 @@ INDEX = "id"
 LABEL = "price"
 TEST_SIZE = 0.2
 RANDOM_SEED = 2024
+
+UNKNOWN_VALUE_BINARY = -1
+UNKNOWN_VALUE_ORDINAL = np.nan
+UNKNOWN_VALUE_NOMINAL = np.nan
 
 FeaturesInfo = Dict[str, List[str]]
 """Custom type alias representing a dictionary containing information about feature categories.

@@ -1,7 +1,11 @@
 from typing import List, Optional, Tuple
 
 import numpy as np
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OrdinalEncoder
 
+from src import config
+from src.config import FeaturesInfo
 from src.logger import log_message
 from src.utils import (Dataset, Metadata, PipelineMetadata,
                        log_feature_info_dict, preprocess_init)
@@ -151,3 +155,98 @@ class ColumnsMetadataPrefixer:
 
         self.metadata = metadata
         return df
+
+
+class CategoryTypesTransformer:
+    pipe_meta: PipelineMetadata
+    cached_metadata: Optional[Metadata]
+    verbose: int
+    n_jobs: int
+    column_transformer: Optional[ColumnTransformer] = None
+
+    def __init__(
+        self, pipe_meta: PipelineMetadata, verbose: int = 0, n_jobs: int = 1
+    ) -> None:
+        self.pipe_meta = pipe_meta
+        self.cached_metadata = None
+        self.verbose = verbose
+        self.n_jobs = n_jobs
+
+    @property
+    def metadata(self) -> Metadata:
+        return self.pipe_meta.data
+
+    @metadata.setter
+    def metadata(self, metadata):
+        self.pipe_meta.data = metadata
+
+    @preprocess_init
+    def _get_column_transformer(self, features_info: FeaturesInfo) -> ColumnTransformer:
+        binary_encoder = OrdinalEncoder(
+            handle_unknown="use_encoded_value",
+            unknown_value=config.UNKNOWN_VALUE_BINARY,
+        )
+        ordinal_encoder = OrdinalEncoder(
+            handle_unknown="use_encoded_value",
+            unknown_value=config.UNKNOWN_VALUE_ORDINAL,
+        )
+        nominal_encoder = OrdinalEncoder(
+            handle_unknown="use_encoded_value",
+            unknown_value=config.UNKNOWN_VALUE_NOMINAL,
+        )
+
+        column_transformer = ColumnTransformer(
+            [
+                ("binary", binary_encoder, features_info["binary"]),
+                ("ordinal", ordinal_encoder, features_info["ordinal"]),
+                ("nominal", nominal_encoder, features_info["nominal"]),
+            ],
+            remainder="passthrough",
+            verbose_feature_names_out=False,
+            verbose=bool(self.verbose),
+            n_jobs=self.n_jobs,
+        )
+        column_transformer.set_output(transform="pandas")
+        return column_transformer
+
+    def init_column_transformer(self):
+        if not self.cached_metadata:
+            self.cached_metadata = self.metadata
+
+        features_info = self.cached_metadata.features_info
+
+        self.column_transformer = self._get_column_transformer(features_info)
+
+    def fit(self, df: Dataset, y=None, **params):
+        if not self.column_transformer:
+            self.init_column_transformer()
+
+        return self.column_transformer.fit(df, y=None, **params)  # type: ignore
+
+    def transform(self, df, **params):
+        log_message("Handling category types...", self.verbose)
+
+        if not self.column_transformer:
+            raise Exception(
+                f"Column transformer is None and should be instance of {ColumnTransformer.__name__}"
+            )
+
+        if not self.cached_metadata:
+            raise TypeError(
+                f"Cached metadata is None and should be instance of {Metadata.__name__}"
+            )
+
+        features_info = self.cached_metadata.features_info
+
+        log_feature_info_dict(
+            features_info,
+            "handling category types",
+            self.verbose,
+        )
+
+        log_message("Handled category types successfully.", self.verbose)
+
+        return self.column_transformer.transform(df, **params)
+
+    def set_output(*args, **kwargs):
+        pass
