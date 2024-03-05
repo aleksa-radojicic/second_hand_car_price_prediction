@@ -2,13 +2,15 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder
 
 from src import config
 from src.config import FeaturesInfo
 from src.logger import log_message
-from src.utils import (Dataset, Metadata, PipelineMetadata,
-                       log_feature_info_dict, preprocess_init)
+from src.utils import (COLUMNS_NAN_STRATEGY_MAP, ColsNanStrategy, Dataset,
+                       Metadata, PipelineMetadata, log_feature_info_dict,
+                       preprocess_init)
 
 
 def prefix_ds_metadata_columns(
@@ -247,6 +249,103 @@ class CategoryTypesTransformer:
         log_message("Handled category types successfully.", self.verbose)
 
         return self.column_transformer.transform(df, **params)
+
+    def set_output(*args, **kwargs):
+        pass
+
+
+class MissingValuesHandler:
+    pipe_meta: PipelineMetadata
+    cached_metadata: Optional[Metadata]
+    verbose: int
+    n_jobs: int
+    column_transformer: Optional[ColumnTransformer] = None
+
+    def __init__(
+        self, pipe_meta: PipelineMetadata, verbose: int = 0, n_jobs: int = 1
+    ) -> None:
+        self.pipe_meta = pipe_meta
+        self.cached_metadata = None
+        self.verbose = verbose
+        self.n_jobs = n_jobs
+
+    @property
+    def metadata(self) -> Metadata:
+        return self.pipe_meta.data
+
+    @metadata.setter
+    def metadata(self, metadata):
+        self.pipe_meta.data = metadata
+
+    @preprocess_init
+    def _get_column_transformer(
+        self, cols_nan_strategy: ColsNanStrategy
+    ) -> ColumnTransformer:
+        transformers: list[Tuple[str, SimpleImputer, List[str]]] = []
+
+        for nan_strategy, imputer_obj in COLUMNS_NAN_STRATEGY_MAP.items():
+            columns_for_applying = cols_nan_strategy[nan_strategy]
+
+            transformers.append((nan_strategy, imputer_obj, columns_for_applying))
+
+        column_transformer = ColumnTransformer(
+            transformers,
+            remainder="passthrough",
+            verbose_feature_names_out=False,
+            verbose=bool(self.verbose),
+            n_jobs=self.n_jobs,
+        )
+        column_transformer.set_output(transform="pandas")
+        return column_transformer
+
+    @staticmethod
+    def filter_col_nan_strategy_map(
+        cols_nan_strategy: ColsNanStrategy,
+    ) -> ColsNanStrategy:
+        return cols_nan_strategy
+
+    def init_column_transformer(self):
+        if not self.cached_metadata:
+            self.cached_metadata = self.metadata
+
+        cols_nan_strategy = self.cached_metadata.cols_nan_strategy
+        cols_nan_strategy_filtered = MissingValuesHandler.filter_col_nan_strategy_map(
+            cols_nan_strategy
+        )
+
+        self.column_transformer = self._get_column_transformer(
+            cols_nan_strategy_filtered
+        )
+
+    def fit(self, X, y=None, **params):
+        if not self.column_transformer:
+            self.init_column_transformer()
+        return self.column_transformer.fit(X, y=None, **params)  # type: ignore
+
+    def transform(self, X, **params) -> Dataset:
+        log_message("Handling missing values...", self.verbose)
+
+        if not self.cached_metadata:
+            raise TypeError(
+                f"Cached metadata is None and should be instance of {Metadata.__name__}"
+            )
+        features_info = self.cached_metadata.features_info
+
+        if not self.column_transformer:
+            raise Exception(
+                f"Column transformer is None and should be instance of {ColumnTransformer.__name__}"
+            )
+
+        df: Dataset = self.column_transformer.transform(X, **params)  # type: ignore
+
+        log_feature_info_dict(
+            features_info,
+            "handling missing values",
+            self.verbose,
+        )
+
+        log_message("Handled missing values successfully.", self.verbose)
+        return df
 
     def set_output(*args, **kwargs):
         pass

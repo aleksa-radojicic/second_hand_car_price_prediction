@@ -44,7 +44,7 @@ class UACleaner:
 
         # Group simillar categories for 'gi_fuel_type'
         df.gi_fuel_type = pd.Categorical(
-            df.gi_fuel_type.astype("string").replace(
+            df.gi_fuel_type.astype("object").replace(
                 {
                     "Hibridni pogon (Benzin)": "Hibridni pogon",
                     "Hibridni pogon (Dizel)": "Hibridni pogon",
@@ -57,7 +57,7 @@ class UACleaner:
 
         # Group simillar categories for 'ai_gearbox_type'
         df.ai_gearbox_type = pd.Categorical(
-            df.ai_gearbox_type.astype("string").replace(
+            df.ai_gearbox_type.astype("object").replace(
                 {
                     "Automatski": "Automatski / poluautomatski",
                     "Poluautomatski": "Automatski / poluautomatski",
@@ -118,11 +118,6 @@ class UACleaner:
 
         const_strat_cols_zero = ["listing_followers_no"]
 
-        # Drop 'gi_battery_capacity' (too many zero values)
-        # Drop 'ai_deposit' (label leakage)
-        # Drop 'ai_installment_no' (label leakage)
-        # Drop 'ai_cash_payment' (label leakage)
-        # Drop 'ai_range_on_full_battery_km' (too many zero values)
         cols_scheduled_for_deletion = [
             "gi_battery_capacity",
             "ai_deposit",

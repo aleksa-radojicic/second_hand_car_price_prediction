@@ -141,7 +141,7 @@ class InitialCleaner:
         features_info = metadata.features_info
 
         # Convert 'location' to categorical type (nominal)
-        df[feature_name] = pd.Categorical(df[feature_name], ordered=False)
+        df[feature_name] = pd.Categorical(df[feature_name].astype("object"), ordered=False)
 
         # Add 'location' to 'nominal' features
         features_info["nominal"].append(feature_name)
@@ -361,7 +361,7 @@ class InitialCleaner:
 
         # Convert nominal columns to categorical types (nominal)
         for col in nominal_cols:
-            df[col] = pd.Categorical(df[col], ordered=False)
+            df[col] = pd.Categorical(df[col].astype("object"), ordered=False)
 
         # Convert numerical columns to numerical types
         for col in numerical_cols:
@@ -467,11 +467,11 @@ class InitialCleaner:
 
         # Convert ordinal columns to categorical types (ordinal)
         for col in ordinal_cols:
-            df[col] = pd.Categorical(df[col], ordered=True)
+            df[col] = pd.Categorical(df[col].astype("object"), ordered=True)
 
         # Convert nominal columns to categorical types (nominal)
         for col in nominal_cols:
-            df[col] = pd.Categorical(df[col], ordered=False)
+            df[col] = pd.Categorical(df[col].astype("object"), ordered=False)
 
         # Convert numerical columns to numerical types
         for col in numerical_cols:

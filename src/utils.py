@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Tuple
 
 import pandas as pd
+from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from typeguard import check_type
 
@@ -44,6 +45,16 @@ def init_cols_nan_strategy() -> ColsNanStrategy:
         "const_false": [],
     }
     return columns_nan_strategy
+
+
+COLUMNS_NAN_STRATEGY_MAP: Dict[str, SimpleImputer] = {
+    "mean": SimpleImputer(strategy="mean"),
+    "median": SimpleImputer(strategy="median"),
+    "modus": SimpleImputer(strategy="most_frequent"),
+    "const_unknown": SimpleImputer(strategy="constant", fill_value=-1),
+    "const_0": SimpleImputer(strategy="constant", fill_value=0),
+    "const_false": SimpleImputer(strategy="constant", fill_value=0),
+}
 
 
 def init_idx_to_remove() -> IdxToRemove:
