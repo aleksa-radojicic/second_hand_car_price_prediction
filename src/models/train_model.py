@@ -1,4 +1,5 @@
 import copy
+from enum import Enum, auto
 from typing import Any, Callable, Dict
 
 import xgboost as xgb
@@ -7,12 +8,14 @@ from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
 from sklearn.linear_model import Ridge
 from sklearn.metrics import make_scorer, r2_score
+from sklearn.model_selection import GridSearchCV, KFold
+from sklearn.model_selection._search import BaseSearchCV
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeRegressor
 
 from src import config
-from src.logger import logging
+from src.logger import log_message, logging
 from src.utils import Dataset, get_X_set, get_y_set
 
 
@@ -64,7 +67,7 @@ class Metric:
     @property
     def scorer(self):
         scorer = make_scorer(
-            score_func=Metric.compute,
+            score_func=self.compute,
             greater_is_better=self.greater_is_better,
         )
         return scorer
@@ -141,6 +144,57 @@ class Runner:
 
             logging.info(f"Train score for {model.name}: {scores['train']}")
             logging.info(f"Test score for {model.name}: {scores['test']}")
+
+
+class HPTunerType(Enum):
+    GRID_SEARCH = auto()
+
+
+class HyperparametersTuner:
+    name: str
+    verbose: int
+
+    base_tuner: BaseSearchCV
+    _tuner_map: Dict[HPTunerType, BaseSearchCV]
+
+    def __init__(
+        self,
+        name: str,
+        type: HPTunerType,
+        estimator: BaseEstimator,
+        param_grid,
+        verbose: int,
+    ):
+        self.name = name
+        self.estimator = estimator
+        self.verbose = verbose
+        self.param_grid = param_grid
+
+        self._init_tuner_map()
+        self.base_tuner = self._tuner_map[type]
+
+    def _init_tuner_map(self):
+        cv_no = 5
+        cv = KFold(cv_no, shuffle=True, random_state=config.RANDOM_SEED)
+
+        self._tuner_map = {
+            HPTunerType.GRID_SEARCH: GridSearchCV(
+                self.estimator,
+                param_grid=self.param_grid,
+                cv=cv,
+                n_jobs=2,
+                return_train_score=True,
+                verbose=self.verbose,
+                # refit=True,
+                scoring=METRICS["r2"].scorer,
+                error_score="raise",
+            )
+        }
+
+    def start(self, X: Dataset, y: Dataset) -> None:
+        log_message(f"Tuning hyperparameters {self.name}...", self.verbose)
+        self.base_tuner.fit(X=X, y=y)
+        log_message(f"Tuned hyperparameters {self.name} successfully.", self.verbose)
 
 
 def main():
