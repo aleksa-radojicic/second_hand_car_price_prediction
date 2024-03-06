@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
 from src import config
 from src.config import FeaturesInfo
@@ -346,6 +346,90 @@ class MissingValuesHandler:
 
         log_message("Handled missing values successfully.", self.verbose)
         return df
+
+    def set_output(*args, **kwargs):
+        pass
+
+
+class FinalColumnTransformer:
+    pipe_meta: PipelineMetadata
+    cached_metadata: Optional[Metadata]
+    verbose: int
+    n_jobs: int
+    column_transformer: Optional[ColumnTransformer] = None
+
+    def __init__(
+        self, pipe_meta: PipelineMetadata, verbose: int = 0, n_jobs: int = 1
+    ) -> None:
+        self.pipe_meta = pipe_meta
+        self.cached_metadata = None
+        self.verbose = verbose
+        self.n_jobs = n_jobs
+
+    @property
+    def metadata(self) -> Metadata:
+        return self.pipe_meta.data
+
+    @metadata.setter
+    def metadata(self, metadata):
+        self.pipe_meta.data = metadata
+
+    @preprocess_init
+    def _get_column_transformer(self, features_info: FeaturesInfo) -> ColumnTransformer:
+        column_transformer = ColumnTransformer(
+            [
+                ("numerical", "passthrough", features_info["numerical"]),
+                ("binary", "passthrough", features_info["binary"]),
+                ("ordinal", "passthrough", features_info["ordinal"]),
+                ("nominal", OneHotEncoder(sparse_output=False), features_info["nominal"]),
+                ("label", "passthrough", [config.LABEL]),
+            ],
+            remainder="drop",
+            verbose_feature_names_out=False,
+            verbose=bool(self.verbose),
+            n_jobs=self.n_jobs,
+        )
+        column_transformer.set_output(transform="pandas")
+        return column_transformer
+
+    def init_column_transformer(self):
+        if not self.cached_metadata:
+            self.cached_metadata = self.metadata
+
+        features_info = self.cached_metadata.features_info
+
+        self.column_transformer = self._get_column_transformer(features_info)
+
+    def fit(self, df: Dataset, y=None, **params):
+        if not self.column_transformer:
+            self.init_column_transformer()
+
+        return self.column_transformer.fit(df, y=None, **params)  # type: ignore
+
+    def transform(self, df, **params):
+        log_message("Applying final column transformer...", self.verbose)
+
+        if not self.column_transformer:
+            raise Exception(
+                f"Column transformer is None and should be instance of {ColumnTransformer.__name__}"
+            )
+
+        if not self.cached_metadata:
+            raise TypeError(
+                f"Cached metadata is None and should be instance of {Metadata.__name__}"
+            )
+
+        features_info = self.cached_metadata.features_info
+
+        log_feature_info_dict(
+            features_info,
+            "applying final column transformer",
+            self.verbose,
+        )
+
+        log_message("Applied final column transformer successfully.", self.verbose)
+
+        return self.column_transformer.transform(df, **params)
 
     def set_output(*args, **kwargs):
         pass

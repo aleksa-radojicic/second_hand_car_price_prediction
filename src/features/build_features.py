@@ -8,7 +8,7 @@ import src.features.multivariate_analysis as ma
 import src.features.univariate_analysis as ua
 from src.data.make_dataset import DatasetMaker
 from src.features.other_transformers import (CategoryTypesTransformer,
-                                             ColumnsDropper,
+                                             ColumnsDropper, FinalColumnTransformer,
                                              MissingValuesHandler)
 from src.utils import (Dataset, Metadata, PipelineMetadata, preprocess_init,
                        train_test_split_custom)
@@ -42,6 +42,7 @@ class FeaturesBuilder:
         columns_dropper = ft(ColumnsDropper(pipe_meta, verbose).start)
         cat_handler = CategoryTypesTransformer(pipe_meta, verbose)
         nan_handler = MissingValuesHandler(pipe_meta, verbose)
+        final_ct = FinalColumnTransformer(pipe_meta, verbose)
 
         # Create pipeline
         data_transformation_pipeline = Pipeline(
@@ -51,6 +52,7 @@ class FeaturesBuilder:
                 ("col_dropper", columns_dropper),
                 ("cat_handler", cat_handler),
                 ("nan_handler", nan_handler),
+                ("final_ct", final_ct),
             ]
         )
         data_transformation_pipeline.set_output(transform="pandas")
