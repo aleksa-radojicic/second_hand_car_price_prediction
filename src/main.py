@@ -4,7 +4,7 @@ from sklearn.pipeline import Pipeline
 from src.data.make_dataset import DatasetMaker
 from src.features.build_features import FeaturesBuilder
 from src.logger import logging
-from src.models.train_model import Model
+from src.models.train_model import METRICS, Evaluator, Model
 from src.utils import Dataset, get_X_set, get_y_set, train_test_split_custom
 
 
@@ -33,6 +33,14 @@ def main():
     logging.info(f"Training predictor {model.name}...")
     pipeline.fit(X_train, y_train.values)
     logging.info(f"Trained predictor {model.name} successfully.")
+
+    evaluator = Evaluator(METRICS["r2"])
+    logging.info(f"Evaluating predictor {model.name}.")
+    metrics = evaluator.start(pipeline, X_train, y_train, X_test, y_test)
+    logging.info(f"Evaluated predictor {model.name}.")
+
+    print(f"train evaluation metric: {metrics['train']}")
+    print(f"test evaluation metric: {metrics['test']}")
 
 
 if __name__ == "__main__":
