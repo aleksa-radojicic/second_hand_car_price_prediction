@@ -164,3 +164,11 @@ def save_dataset(file_name: str, path: str, dataset: Dataset) -> None:
 def save_metadata(file_name: str, path: str, metadata: Metadata) -> None:
     with open(file=f"{path}/{file_name}_metadata.json", mode="w") as file:
         json.dump(metadata, file, cls=MetadataEncoder, indent=4)
+
+
+def get_X_set(df: Dataset) -> Dataset:
+    return df.drop(config.LABEL, axis=1)
+
+
+def get_y_set(df: Dataset) -> Dataset:
+    return df[[config.LABEL]]
