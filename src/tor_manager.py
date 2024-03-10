@@ -26,7 +26,7 @@ class TorManagerConfig:
     TOR_CIRCUIT_WAIT_TIME = 10
     URL_LISTING_LOAD_TIMEOUT = 9
     URL_SP_LOAD_TIMEOUT = 15
-    HEADLESS_MODE = True
+    HEADLESS_MODE: bool = True
     TIMEOUT = 120
 
 

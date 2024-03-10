@@ -1,7 +1,9 @@
 import multiprocessing
 import re
 import tempfile
+from dataclasses import dataclass
 from multiprocessing.sharedctypes import SynchronizedBase
+from typing import Any, Dict, List
 
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
@@ -20,20 +22,37 @@ BASE_URL_SP = (
 )
 
 
+@dataclass
+class ScraperProcessConfig:
+    socks_port: int
+    options: List[Dict[str, Any]]
+
+    @staticmethod
+    def set_firefox_options(cfg_options: Dict[str, Any]) -> FirefoxOptions:
+        options = FirefoxOptions()
+        for prop_name, prop_val in cfg_options.items():
+            options.set_preference(prop_name, prop_val)
+        return options
+
+
 class ScraperProcess(multiprocessing.Process):
+    name: str
+    cfg: ScraperProcessConfig
+    sp_no: int
+    sp_incrementer: int
+    cars_scraped_total_no: SynchronizedBase
+
     def __init__(
         self,
         name: str,
-        options: FirefoxOptions,
-        SOCKSPort: int,
+        cfg: ScraperProcessConfig,
         sp_no: int,
         sp_incrementer: int,
         cars_scraped_total_no: SynchronizedBase,
     ):
         super(ScraperProcess, self).__init__()
         self.name = name
-        self.options = options
-        self.SOCKSPort = SOCKSPort
+        self.cfg = cfg
         self.sp_no = sp_no
         self.sp_incrementer = sp_incrementer
         self.cars_scraped_total_no = cars_scraped_total_no
@@ -88,8 +107,8 @@ class ScraperProcess(multiprocessing.Process):
 
     def run(self):
         torcc = {
-            "ControlPort": str(self.SOCKSPort + 1),
-            "SOCKSPort": str(self.SOCKSPort),
+            "ControlPort": str(self.cfg.socks_port + 1),
+            "SOCKSPort": str(self.cfg.socks_port),
             "DataDirectory": tempfile.mkdtemp(),
         }
         finished_flag = False
@@ -97,7 +116,10 @@ class ScraperProcess(multiprocessing.Process):
         logging.info(f"Process {self.name} has started.")
         try:
             DbBroker()  # Mainly for checking connection with the db
-            with TorManager(self.options, torcc).manage() as tor_manager:
+            options: FirefoxOptions = ScraperProcessConfig.set_firefox_options(
+                *self.cfg.options
+            )
+            with TorManager(options, torcc).manage() as tor_manager:
                 while not finished_flag:
                     url_sp = BASE_URL_SP(self.sp_no)
                     exception_msg_sp = lambda e: f"{str(e)} for sp {url_sp}"

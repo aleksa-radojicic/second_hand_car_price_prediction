@@ -100,3 +100,5 @@ venv.bak/
 /tor-browser
 
 artifacts
+
+logs

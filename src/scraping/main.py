@@ -1,11 +1,15 @@
 import multiprocessing
 import time
-from typing import List
+from dataclasses import dataclass
+from multiprocessing.sharedctypes import SynchronizedBase
+from pathlib import Path
+from typing import Any, List
 
-from selenium.webdriver.firefox.options import Options as FirefoxOptions
+import hydra
+from hydra.core.config_store import ConfigStore
 
 from src.logger import logging
-from src.scraping.scraper_process import ScraperProcess
+from src.scraping.scraper_process import ScraperProcess, ScraperProcessConfig
 from src.tor_manager import TorManagerConfig
 
 
@@ -16,36 +20,43 @@ def print_total_cars_scraped(processes, cars_scraped_total_no):
             print(f"Total cars scraped: {cars_scraped_total_no.value}")
 
 
-def main():
-    logging.info("Main process has started.")
+@dataclass
+class ScrapeConfig:
+    sp_offset: int
+    headless: bool
+    scraper_processes: list[ScraperProcessConfig]
 
-    SOCKSPorts = [9250, 9350, 9450]
-    process_no = len(SOCKSPorts)
-    sp_offset = 1800
 
-    TorManagerConfig.HEADLESS_MODE = True
+cs: ConfigStore = ConfigStore.instance()
+cs.store(name="scraping", node=ScrapeConfig)
 
-    options = FirefoxOptions()
-    options.set_preference("permissions.default.image", 2)
-    options.set_preference("permissions.default.stylesheet", 2)
+CONFIG_PATH = Path().absolute() / "config" / "scrape"
 
-    cars_scraped_total_no = multiprocessing.Value("i", 0)
+
+@hydra.main(config_path=str(CONFIG_PATH), config_name="scrape", version_base="1.3.1")
+def main(cfg: ScrapeConfig):
+    scraper_processes_configs: List[ScraperProcessConfig] = cfg.scraper_processes
+    process_no: int = len(scraper_processes_configs)
+
+    TorManagerConfig.HEADLESS_MODE = cfg.headless
+    cars_scraped_total_no: SynchronizedBase[Any] = multiprocessing.Value("i", 0)
 
     scraper_processes: List[ScraperProcess] = []
-    for i, SOCKSPort in enumerate(SOCKSPorts, start=1):
-        start_sp_no = sp_offset + i
+    for i, scraper_process_config in enumerate(scraper_processes_configs, start=1):
+        start_search_page: int = cfg.sp_offset + i
         scraper_process = ScraperProcess(
-            f"Process_{i}",
-            options,
-            SOCKSPort,
-            start_sp_no,
-            process_no,
-            cars_scraped_total_no,
+            name=f"Process_{i}",
+            cfg=scraper_process_config,
+            sp_no=start_search_page,
+            sp_incrementer=process_no,
+            cars_scraped_total_no=cars_scraped_total_no,
         )
         scraper_processes.append(scraper_process)
         scraper_process.start()
 
-    print_total_cars_scraped(scraper_processes, cars_scraped_total_no)
+    print_total_cars_scraped(
+        processes=scraper_processes, cars_scraped_total_no=cars_scraped_total_no
+    )
     logging.info("Main process has finished.")
 
 

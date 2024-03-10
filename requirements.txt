@@ -26,3 +26,4 @@ pytest
 seaborn
 xgboost
 stem
+hydra

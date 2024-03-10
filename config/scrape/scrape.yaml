@@ -1,0 +1,26 @@
+defaults:
+  - override hydra/hydra_logging: none
+  - override hydra/job_logging: custom
+
+hydra:
+  run:
+    dir: ./logs/scraper/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+sp_offset: 1800
+headless: True
+
+scraper_processes:
+  - socks_port: 9250
+    options:
+    - permissions.default.image: 2
+      permissions.default.stylesheet: 2
+
+  - socks_port: 9350
+    options:
+    - permissions.default.image: 2
+      permissions.default.stylesheet: 2
+
+  - socks_port: 9450
+    options:
+    - permissions.default.image: 2
+      permissions.default.stylesheet: 2
