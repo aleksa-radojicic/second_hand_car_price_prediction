@@ -13,7 +13,7 @@ from src.scraping.scraper_process import ScraperProcess, ScraperProcessConfig
 from src.tor_manager import TorManagerConfig
 
 
-def print_total_cars_scraped(processes, cars_scraped_total_no):
+def print_total_cars_scraped(processes, cars_scraped_total_no) -> None:
     while any(process.is_alive() for process in processes):
         time.sleep(60)
         with cars_scraped_total_no.get_lock():
@@ -23,30 +23,30 @@ def print_total_cars_scraped(processes, cars_scraped_total_no):
 @dataclass
 class ScrapeConfig:
     sp_offset: int
-    headless: bool
     scraper_processes: list[ScraperProcessConfig]
+    tor: TorManagerConfig
 
 
 cs: ConfigStore = ConfigStore.instance()
 cs.store(name="scraping", node=ScrapeConfig)
 
-CONFIG_PATH = Path().absolute() / "config" / "scrape"
+CONFIG_PATH: str = str(Path().absolute() / "config" / "scrape")
 
 
-@hydra.main(config_path=str(CONFIG_PATH), config_name="scrape", version_base="1.3.1")
+@hydra.main(config_path=CONFIG_PATH, config_name="scrape", version_base="1.3.1")
 def main(cfg: ScrapeConfig):
     scraper_processes_configs: List[ScraperProcessConfig] = cfg.scraper_processes
     process_no: int = len(scraper_processes_configs)
 
-    TorManagerConfig.HEADLESS_MODE = cfg.headless
     cars_scraped_total_no: SynchronizedBase[Any] = multiprocessing.Value("i", 0)
-
     scraper_processes: List[ScraperProcess] = []
+
     for i, scraper_process_config in enumerate(scraper_processes_configs, start=1):
         start_search_page: int = cfg.sp_offset + i
         scraper_process = ScraperProcess(
             name=f"Process_{i}",
             cfg=scraper_process_config,
+            tor_cfg=cfg.tor,
             sp_no=start_search_page,
             sp_incrementer=process_no,
             cars_scraped_total_no=cars_scraped_total_no,

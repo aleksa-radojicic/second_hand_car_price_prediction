@@ -38,6 +38,7 @@ class ScraperProcessConfig:
 class ScraperProcess(multiprocessing.Process):
     name: str
     cfg: ScraperProcessConfig
+    tor_cfg: TorManagerConfig
     sp_no: int
     sp_incrementer: int
     cars_scraped_total_no: SynchronizedBase
@@ -46,6 +47,7 @@ class ScraperProcess(multiprocessing.Process):
         self,
         name: str,
         cfg: ScraperProcessConfig,
+        tor_cfg: TorManagerConfig,
         sp_no: int,
         sp_incrementer: int,
         cars_scraped_total_no: SynchronizedBase,
@@ -53,6 +55,7 @@ class ScraperProcess(multiprocessing.Process):
         super(ScraperProcess, self).__init__()
         self.name = name
         self.cfg = cfg
+        self.tor_cfg = tor_cfg
         self.sp_no = sp_no
         self.sp_incrementer = sp_incrementer
         self.cars_scraped_total_no = cars_scraped_total_no
@@ -70,10 +73,7 @@ class ScraperProcess(multiprocessing.Process):
     def scrape_and_save_listing(self, url_listing, tor_manager, exception_msg_sp):
         exception_msg_listing = lambda e: f"{str(e)} for listing {url_listing}"
         try:
-            tor_manager.load_url(
-                url_listing,
-                TorManagerConfig.URL_LISTING_LOAD_TIMEOUT,
-            )
+            tor_manager.load_url(url_listing, type="listing")
             listing = Scraper(tor_manager.driver).scrape_listing()
             DbBroker().save_listing(listing)
             self.cars_scraped_per_sp_no += 1
@@ -106,7 +106,7 @@ class ScraperProcess(multiprocessing.Process):
         self.sp_no += self.sp_incrementer
 
     def run(self):
-        torcc = {
+        torcc: Dict[str, Any] = {
             "ControlPort": str(self.cfg.socks_port + 1),
             "SOCKSPort": str(self.cfg.socks_port),
             "DataDirectory": tempfile.mkdtemp(),
@@ -119,14 +119,14 @@ class ScraperProcess(multiprocessing.Process):
             options: FirefoxOptions = ScraperProcessConfig.set_firefox_options(
                 *self.cfg.options
             )
-            with TorManager(options, torcc).manage() as tor_manager:
+            tor_cfg: TorManagerConfig = TorManagerConfig(**self.tor_cfg) # type: ignore
+            
+            with TorManager(tor_cfg, options, torcc).manage() as tor_manager:
                 while not finished_flag:
                     url_sp = BASE_URL_SP(self.sp_no)
                     exception_msg_sp = lambda e: f"{str(e)} for sp {url_sp}"
                     try:
-                        tor_manager.load_url(
-                            url_sp, TorManagerConfig.URL_SP_LOAD_TIMEOUT
-                        )
+                        tor_manager.load_url(url_sp, type="sp")
                         logging.info("Loaded sp successfully.")
 
                         self._scrape_and_save_listings_from_sp(

@@ -7,7 +7,6 @@ hydra:
     dir: ./logs/scraper/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
 sp_offset: 1800
-headless: True
 
 scraper_processes:
   - socks_port: 9250
@@ -24,3 +23,11 @@ scraper_processes:
     options:
     - permissions.default.image: 2
       permissions.default.stylesheet: 2
+
+tor:
+  circuit_wait_time: 10
+  tbb_path: ./tor-browser
+  url_listing_load_timeout: 9
+  url_sp_load_timeout: 15
+  headless_mode: True
+  start_timeout: 120

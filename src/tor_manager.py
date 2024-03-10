@@ -3,10 +3,13 @@ import subprocess
 import tempfile
 import time
 from contextlib import contextmanager
+from dataclasses import dataclass
 from os.path import dirname, isfile, join
+from typing import Any, Dict, Literal
 
 import tbselenium.common as cm
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from stem import Signal
 from stem.control import Controller
 from stem.process import launch_tor_with_config
@@ -14,20 +17,19 @@ from tbselenium.exceptions import StemLaunchError
 from tbselenium.tbdriver import TorBrowserDriver
 from tbselenium.utils import prepend_to_env_var
 
-from src.config import PROJECT_DIR
 from src.exception import IPAddressBlockedException
 from src.logger import logging
 from src.scraping.web_scraper import create_soup
 
 
+@dataclass
 class TorManagerConfig:
-    TBB_PATH = os.path.join(PROJECT_DIR, "tor-browser")
-    TOR_CONTROL_PORT = 9251
-    TOR_CIRCUIT_WAIT_TIME = 10
-    URL_LISTING_LOAD_TIMEOUT = 9
-    URL_SP_LOAD_TIMEOUT = 15
-    HEADLESS_MODE: bool = True
-    TIMEOUT = 120
+    tbb_path: str
+    circuit_wait_time: int
+    url_listing_load_timeout: int
+    url_sp_load_timeout: int
+    headless_mode: bool
+    start_timeout: int
 
 
 def launch_tbb_tor_with_stem_expanded(
@@ -58,29 +60,38 @@ def launch_tbb_tor_with_stem_expanded(
 
 
 class TorManager:
-    def __init__(self, options, torcc):
-        self.tor_process: subprocess.Popen
-        self.driver: TorBrowserDriver
-        self.controller: Controller
+    tor_process: subprocess.Popen
+    driver: TorBrowserDriver
+    controller: Controller
+
+    cfg: TorManagerConfig
+    options: FirefoxOptions
+    torcc: Dict[str, Any]
+
+    def __init__(
+        self, cfg: TorManagerConfig, options: FirefoxOptions, torcc: Dict[str, Any]
+    ):
+        self.cfg = cfg
         self.options = options
         self.torcc = torcc
 
     @contextmanager
     def manage(self):
         self.tor_process = launch_tbb_tor_with_stem_expanded(
-            TorManagerConfig.TBB_PATH,
+            self.cfg.tbb_path,
             torrc=self.torcc,
-            timeout=TorManagerConfig.TIMEOUT,
+            timeout=self.cfg.start_timeout,
         )
 
         try:
             with TorBrowserDriver(
-                TorManagerConfig.TBB_PATH,
+                self.cfg.tbb_path,
                 tor_cfg=cm.USE_STEM,
-                headless=TorManagerConfig.HEADLESS_MODE,
+                headless=self.cfg.headless_mode,
                 options=self.options,
             ) as self.driver:
-                with Controller.from_port(port=TorManagerConfig.TOR_CONTROL_PORT) as self.controller:  # type: ignore
+                # !:  port TorManagerConfig.TOR_CONTROL_PORT is wrong and should be retreived from torcc
+                with Controller.from_port(port=9251) as self.controller:  # type: ignore
                     self.controller.authenticate()
                     logging.info(f"Tor is running with PID={self.controller.get_pid()}")
                     yield self
@@ -90,7 +101,7 @@ class TorManager:
     def get_new_tor_circuit(self):
         self.controller.signal(Signal.NEWNYM)  # type: ignore
         logging.info("Got new tor circuit")
-        time.sleep(TorManagerConfig.TOR_CIRCUIT_WAIT_TIME)
+        time.sleep(self.cfg.circuit_wait_time)
 
     def check_for_blocked_ip(self):
         soup = create_soup(self.driver.page_source)
@@ -99,8 +110,15 @@ class TorManager:
         if len(img_elements) < 4:
             raise IPAddressBlockedException("IP address is blocked")
 
-    def load_url(self, url: str, timeout: float):
+    def load_url(self, url: str, type: Literal["listing", "sp"]):
         try:
+            timeout: int
+
+            if type == "listing":
+                timeout = self.cfg.url_listing_load_timeout
+            elif type == "sp":
+                timeout = self.cfg.url_sp_load_timeout
+
             self.driver.set_page_load_timeout(timeout)
             self.driver.load_url(url)
         except TimeoutException:
