@@ -25,32 +25,40 @@ def main():
     df_train_prep: Dataset = pd.DataFrame(preprocess_pipe.fit_transform(df_train))
     df_test_prep: Dataset = pd.DataFrame(preprocess_pipe.transform(df_test))
 
-    X_train_prep = get_X_set(df_train_prep)
-    y_train_prep = get_y_set(df_train_prep)
+    # X_train_prep = get_X_set(df_train_prep)
+    # y_train_prep = get_y_set(df_train_prep)
 
     model: Model = MODELS["ridge"]
-    pipeline = Pipeline([("predictor", model)])
+    # pipeline = Pipeline([("predictor", model)])
+    pipeline = Pipeline([])
     # pipeline = Pipeline([("preprocessor", preprocess_pipe)])
 
     # model_names = ["ridge", "dt", "dummy_mean", "dummy_median"]
-    # models: list[Model] = [model for model_name, model in MODELS.items() if model_name in model_names]
-    # Runner(models).start(pipeline, df_train_prep, df_test_prep)
-
-    param_grid = {"predictor__base_model__alpha": np.linspace(0, 1, 5)}
-
-    hyperparameter_tuner = HyperparametersTuner(
-        name="Tuning 1",
-        type=HPTunerType.GRID_SEARCH,
-        estimator=pipeline,
-        param_grid=param_grid,
-        verbose=2,
+    model_names = list(MODELS.keys())
+    models: list[Model] = [
+        model for model_name, model in MODELS.items() if model_name in model_names
+    ]
+    results = Runner(models, METRICS["mae"]).start(
+        pipeline, df_train_prep, df_test_prep
     )
-    hyperparameter_tuner.start(X_train_prep, y_train_prep)
+    print(results)
 
-    cv_results = hyperparameter_tuner.base_tuner.cv_results_ # type: ignore
+    # param_grid = {"predictor__base_model__alpha": np.linspace(0, 1, 100)}
 
-    print(cv_results)
-    print(hyperparameter_tuner.base_tuner.best_score_) # type: ignore
+    # hyperparameter_tuner = HyperparametersTuner(
+    #     name="Tuning 1",
+    #     type=HPTunerType.GRID_SEARCH,
+    #     estimator=pipeline,
+    #     param_grid=param_grid,
+    #     verbose=2,
+    # )
+    # hyperparameter_tuner.start(X_train_prep, y_train_prep)
+
+    # cv_results = hyperparameter_tuner.base_tuner.cv_results_ # type: ignore
+
+    # print(cv_results)
+    # print(hyperparameter_tuner.base_tuner.best_score_) # type: ignore
+
 
 if __name__ == "__main__":
     main()

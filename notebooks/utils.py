@@ -1,7 +1,7 @@
 import collections
 import inspect
 import os
-from typing import Tuple
+from typing import Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -235,8 +235,8 @@ def test_cols_nan_strategy_with_features_info(
     for strategy in cols_nan_strategy:
         cns_list.extend(cols_nan_strategy[strategy])
 
-    not_in_right_msg = f"Columns not in right:\n{set(all_feats) - set(cns_list)}"
-    not_in_left_msg = f"Columns not in left:\n{set(cns_list) - set(all_feats)}"
-    error_msg = f"{not_in_right_msg}\n{not_in_left_msg}"
+    # NOTE: not_in_fi_msg is not needed because ColumnsDropper will handle those cases
+    cols_not_in_cns: Set[str] = set(all_feats) - set(cns_list)
+    not_in_cns_msg = f"Columns not in cols_nan_strategy:\n{cols_not_in_cns}"
 
-    assert set(all_feats) == set(cns_list), error_msg
+    assert cols_not_in_cns == set(), not_in_cns_msg

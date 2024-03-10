@@ -126,6 +126,10 @@ class MACleaner:
             ["gi_battery_capacity", "ai_range_on_full_battery_km"]
         )
 
+        # Exclude nominal features that have too big cardinality at the moment
+        nominal_to_delete = ["location", "gi_brand", "gi_model"]
+        features_info["features_to_delete"].extend(nominal_to_delete)
+
         return df, metadata
 
     @staticmethod

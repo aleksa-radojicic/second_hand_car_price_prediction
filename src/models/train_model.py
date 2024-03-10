@@ -7,7 +7,7 @@ from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
 from sklearn.linear_model import Ridge
-from sklearn.metrics import make_scorer, r2_score
+from sklearn.metrics import make_scorer, mean_absolute_error, root_mean_squared_error, r2_score
 from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.model_selection._search import BaseSearchCV
 from sklearn.neighbors import KNeighborsRegressor
@@ -17,7 +17,6 @@ from sklearn.tree import DecisionTreeRegressor
 from src import config
 from src.logger import log_message, logging
 from src.utils import Dataset, get_X_set, get_y_set
-
 
 class Model(BaseEstimator, RegressorMixin):
     name: str
@@ -49,7 +48,7 @@ MODELS: Dict[str, Model] = {
     "dt": Model("dt", DecisionTreeRegressor(random_state=config.RANDOM_SEED)),
     "ada": Model("ada", AdaBoostRegressor(random_state=config.RANDOM_SEED)),
     "rf": Model("rf", _rf_classifier),
-    "xgb": xgb.XGBRegressor(),
+    "xgb": Model("xgb", xgb.XGBRegressor()),
 }
 _rf_classifier.estimator_ = DecisionTreeRegressor(random_state=config.RANDOM_SEED)
 
@@ -78,7 +77,13 @@ class Metric:
 
 
 METRICS: dict[str, Metric] = {
-    "r2": Metric(name="r2", score_func=r2_score, greater_is_better=True)
+    "r2": Metric(name="r2", score_func=r2_score, greater_is_better=True),
+    "mae": Metric(name="mae", score_func=mean_absolute_error, greater_is_better=False),
+    "rmse": Metric(
+        name="rmse",
+        score_func=root_mean_squared_error,
+        greater_is_better=False,
+    ),
 }
 
 
@@ -99,15 +104,15 @@ class Evaluator:
         y_train_pred = pipeline.predict(X_train)
         y_test_pred = pipeline.predict(X_test)
 
-        train_score = self.metric.compute(y_train.values, y_train_pred)
-        test_score = self.metric.compute(y_test.values, y_test_pred)
+        train_score = self.metric.compute(y_train.values.ravel(), y_train_pred)
+        test_score = self.metric.compute( y_test.values.ravel(), y_test_pred)
 
         scores: Dict[str, float] = {"train": train_score, "test": test_score}
         return scores
 
 
 def train_and_evaluate(
-    pipeline: Pipeline, df_train: Dataset, df_test: Dataset
+    pipeline: Pipeline, df_train: Dataset, df_test: Dataset, metric: Metric
 ) -> Dict[str, float]:
     X_train = get_X_set(df_train)
     X_test = get_X_set(df_test)
@@ -118,11 +123,11 @@ def train_and_evaluate(
 
     # Train
     logging.info(f"Training predictor {model.name}...")
-    pipeline.fit(X_train, y_train.values)
+    pipeline.fit(X_train, y_train.values.ravel())
     logging.info(f"Trained predictor {model.name} successfully.")
 
     # Evaluate
-    evaluator = Evaluator(METRICS["r2"])
+    evaluator = Evaluator(metric)
     logging.info(f"Evaluating predictor {model.name}.")
     metrics = evaluator.start(pipeline, X_train, y_train, X_test, y_test)
     logging.info(f"Evaluated predictor {model.name}.")
@@ -131,19 +136,30 @@ def train_and_evaluate(
 
 
 class Runner:
-    def __init__(self, models: list[Model]):
-        self.models = models
+    metric: Metric
 
-    def start(self, pipeline: Pipeline, df_train: Dataset, df_test: Dataset):
+    def __init__(self, models: list[Model], metric: Metric):
+        self.models = models
+        self.metric = metric
+
+    def start(
+        self, pipeline: Pipeline, df_train: Dataset, df_test: Dataset
+    ) -> Dict[str, float]:
         pipeline = copy.deepcopy(pipeline)
+
+        results: Dict[str, float] = {}
 
         for model in self.models:
             main_pipe = copy.deepcopy(pipeline)
             main_pipe.steps.append(("predictor", model))
-            scores = train_and_evaluate(main_pipe, df_train, df_test)
+            scores = train_and_evaluate(main_pipe, df_train, df_test, self.metric)
 
             logging.info(f"Train score for {model.name}: {scores['train']}")
             logging.info(f"Test score for {model.name}: {scores['test']}")
+
+            results[model.name] = scores["test"]
+        sorted_results = dict(sorted(results.items(), key=lambda x: x[1]))
+        return sorted_results
 
 
 class HPTunerType(Enum):
@@ -152,6 +168,7 @@ class HPTunerType(Enum):
 
 class HyperparametersTuner:
     name: str
+    metric: Metric
     verbose: int
 
     base_tuner: BaseSearchCV
@@ -163,10 +180,12 @@ class HyperparametersTuner:
         type: HPTunerType,
         estimator: BaseEstimator,
         param_grid,
+        metric: Metric,
         verbose: int,
     ):
         self.name = name
         self.estimator = estimator
+        self.metric = metric
         self.verbose = verbose
         self.param_grid = param_grid
 
@@ -182,11 +201,11 @@ class HyperparametersTuner:
                 self.estimator,
                 param_grid=self.param_grid,
                 cv=cv,
-                n_jobs=2,
+                n_jobs=-1,
                 return_train_score=True,
                 verbose=self.verbose,
                 # refit=True,
-                scoring=METRICS["r2"].scorer,
+                scoring=self.metric.scorer,
                 error_score="raise",
             )
         }

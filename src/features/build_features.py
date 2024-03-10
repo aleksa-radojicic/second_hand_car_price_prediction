@@ -8,7 +8,7 @@ import src.features.multivariate_analysis as ma
 import src.features.univariate_analysis as ua
 from src.data.make_dataset import DatasetMaker
 from src.features.other_transformers import (CategoryTypesTransformer,
-                                             ColumnsDropper, FinalColumnTransformer,
+                                             ColumnsDropper, ColumnsMetadataPrefixer, FinalColumnTransformer,
                                              MissingValuesHandler)
 from src.utils import (Dataset, Metadata, PipelineMetadata, preprocess_init,
                        train_test_split_custom)

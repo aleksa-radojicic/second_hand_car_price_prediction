@@ -49,6 +49,7 @@ class ColumnsDropper:
     @preprocess_init
     def drop(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         features_info = metadata.features_info
+        cols_nan_strategy = metadata.cols_nan_strategy
 
         # Note: features_info['features_to_delete'] is copied because
         # values for key 'features_to_delete' are altered in the loop and
@@ -56,6 +57,7 @@ class ColumnsDropper:
 
         columns_to_delete = features_info["features_to_delete"]
 
+        # Delete columns from features_info
         for k, values in features_info.items():
             if k == "features_to_delete":
                 continue
@@ -63,6 +65,13 @@ class ColumnsDropper:
                 value for value in values if value not in columns_to_delete
             ]
 
+        # Delete columns from cols_nan_strategy
+        for k, values in cols_nan_strategy.items():
+            cols_nan_strategy[k] = [
+                value for value in values if value not in columns_to_delete
+            ]
+
+        # Delete columns from dataset
         df.drop(columns=columns_to_delete, axis=1, inplace=True)
 
         return df, metadata
