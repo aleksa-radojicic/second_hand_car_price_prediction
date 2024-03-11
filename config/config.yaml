@@ -1,0 +1,15 @@
+defaults:
+  - override hydra/hydra_logging: none
+  - override hydra/job_logging: custom
+
+models:
+  - name: my_ridge_high
+    type: ridge
+    hyperparameters:
+      alpha: 1.0
+  
+  - name: my_ridge_low
+    type: ridge
+    hyperparameters:
+      alpha: 0
+metric: "rmse"

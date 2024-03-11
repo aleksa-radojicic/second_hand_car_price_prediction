@@ -1,13 +1,15 @@
 import copy
+from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Literal
 
 import xgboost as xgb
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
 from sklearn.linear_model import Ridge
-from sklearn.metrics import make_scorer, mean_absolute_error, root_mean_squared_error, r2_score
+from sklearn.metrics import (make_scorer, mean_absolute_error, r2_score,
+                             root_mean_squared_error)
 from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.model_selection._search import BaseSearchCV
 from sklearn.neighbors import KNeighborsRegressor
@@ -18,14 +20,48 @@ from src import config
 from src.logger import log_message, logging
 from src.utils import Dataset, get_X_set, get_y_set
 
+
+@dataclass
+class ModelConfig:
+    name: str
+    type: str
+    hyperparameters: Dict[str, Any]
+
+
 class Model(BaseEstimator, RegressorMixin):
     name: str
-    # TODO: Add correct typehint
+    cfg: ModelConfig
+
+    # TODO: Add correct typehints
+    _all_base_models: Dict[str, Any]
     base_model: Any
 
-    def __init__(self, name: str, base_model: Any):
-        self.name = name
-        self.base_model = base_model
+    def __init__(self, cfg: ModelConfig):
+        self.cfg = cfg
+        self._all_base_models = self._create_all_base_models()
+        self.base_model = self.create_base_model()
+
+    def _create_all_base_models(self) -> Dict[str, Any]:
+        _rf_classifier = RandomForestRegressor(
+            n_jobs=-1, random_state=config.RANDOM_SEED
+        )
+        all_base_models: Dict[str, Any] = {
+            "dummy_mean": DummyRegressor(strategy="mean"),
+            "dummy_median": DummyRegressor(strategy="median"),
+            "ridge": Ridge(random_state=config.RANDOM_SEED),
+            # "svr": SVR(),
+            "knn": KNeighborsRegressor(n_jobs=-1),
+            "dt": DecisionTreeRegressor(random_state=config.RANDOM_SEED),
+            "ada": AdaBoostRegressor(random_state=config.RANDOM_SEED),
+            "rf": _rf_classifier,
+            "xgb": xgb.XGBRegressor(),
+        }
+        return all_base_models
+
+    def create_base_model(self) -> Any:
+        base_model: Any = self._all_base_models[self.cfg.type]
+        base_model.set_params(**self.cfg.hyperparameters)
+        return base_model
 
     def fit(self, X, y):
         self.base_model.fit(X, y)
@@ -36,21 +72,6 @@ class Model(BaseEstimator, RegressorMixin):
 
     def score(self, X, y):
         return self.base_model.score(X, y)
-
-
-_rf_classifier = RandomForestRegressor(n_jobs=-1, random_state=config.RANDOM_SEED)
-MODELS: Dict[str, Model] = {
-    "dummy_mean": Model("dummy_mean", DummyRegressor(strategy="mean")),
-    "dummy_median": Model("dummy_median", DummyRegressor(strategy="median")),
-    "ridge": Model("ridge", Ridge(random_state=config.RANDOM_SEED)),
-    # "svr": Model("svr", SVR()),
-    "knn": Model("knn", KNeighborsRegressor(n_jobs=-1)),
-    "dt": Model("dt", DecisionTreeRegressor(random_state=config.RANDOM_SEED)),
-    "ada": Model("ada", AdaBoostRegressor(random_state=config.RANDOM_SEED)),
-    "rf": Model("rf", _rf_classifier),
-    "xgb": Model("xgb", xgb.XGBRegressor()),
-}
-_rf_classifier.estimator_ = DecisionTreeRegressor(random_state=config.RANDOM_SEED)
 
 
 class Metric:
@@ -75,16 +96,20 @@ class Metric:
         metric_value = self.score_func(y_true, y_pred)
         return metric_value
 
-
-METRICS: dict[str, Metric] = {
-    "r2": Metric(name="r2", score_func=r2_score, greater_is_better=True),
-    "mae": Metric(name="mae", score_func=mean_absolute_error, greater_is_better=False),
-    "rmse": Metric(
-        name="rmse",
-        score_func=root_mean_squared_error,
-        greater_is_better=False,
-    ),
-}
+    @classmethod
+    def from_name(cls, name: Literal["r2", "mae", "rmse"]) -> "Metric":
+        METRICS: dict[str, Metric] = {
+            "r2": cls(name="r2", score_func=r2_score, greater_is_better=True),
+            "mae": cls(
+                name="mae", score_func=mean_absolute_error, greater_is_better=False
+            ),
+            "rmse": cls(
+                name="rmse",
+                score_func=root_mean_squared_error,
+                greater_is_better=False,
+            ),
+        }
+        return METRICS[name]
 
 
 class Evaluator:
@@ -105,7 +130,7 @@ class Evaluator:
         y_test_pred = pipeline.predict(X_test)
 
         train_score = self.metric.compute(y_train.values.ravel(), y_train_pred)
-        test_score = self.metric.compute( y_test.values.ravel(), y_test_pred)
+        test_score = self.metric.compute(y_test.values.ravel(), y_test_pred)
 
         scores: Dict[str, float] = {"train": train_score, "test": test_score}
         return scores
@@ -122,25 +147,33 @@ def train_and_evaluate(
     model: Model = pipeline[-1]
 
     # Train
-    logging.info(f"Training predictor {model.name}...")
+    logging.info(f"Training predictor {model.cfg.name}...")
     pipeline.fit(X_train, y_train.values.ravel())
-    logging.info(f"Trained predictor {model.name} successfully.")
+    logging.info(f"Trained predictor {model.cfg.name} successfully.")
 
     # Evaluate
     evaluator = Evaluator(metric)
-    logging.info(f"Evaluating predictor {model.name}.")
-    metrics = evaluator.start(pipeline, X_train, y_train, X_test, y_test)
-    logging.info(f"Evaluated predictor {model.name}.")
+    logging.info(f"Evaluating predictor {model.cfg.name}.")
+    metrics: Dict[str, float] = evaluator.start(
+        pipeline, X_train, y_train, X_test, y_test
+    )
+    logging.info(f"Evaluated predictor {model.cfg.name}.")
 
     return metrics
 
 
 class Runner:
+    # TODO: Add correct typehints
+    models: list[Model]
     metric: Metric
 
-    def __init__(self, models: list[Model], metric: Metric):
-        self.models = models
+    def __init__(self, model_configs: list[ModelConfig], metric: Metric):
+        self.models = self.create_models(model_configs)
         self.metric = metric
+
+    def create_models(self, model_configs: list[ModelConfig]) -> list[Model]:
+        models: list[Model] = [Model(model_config) for model_config in model_configs]
+        return models
 
     def start(
         self, pipeline: Pipeline, df_train: Dataset, df_test: Dataset
@@ -154,10 +187,10 @@ class Runner:
             main_pipe.steps.append(("predictor", model))
             scores = train_and_evaluate(main_pipe, df_train, df_test, self.metric)
 
-            logging.info(f"Train score for {model.name}: {scores['train']}")
-            logging.info(f"Test score for {model.name}: {scores['test']}")
+            logging.info(f"Train score for {model.cfg.name}: {scores['train']}")
+            logging.info(f"Test score for {model.cfg.name}: {scores['test']}")
 
-            results[model.name] = scores["test"]
+            results[model.cfg.name] = scores["test"]
         sorted_results = dict(sorted(results.items(), key=lambda x: x[1]))
         return sorted_results
 
