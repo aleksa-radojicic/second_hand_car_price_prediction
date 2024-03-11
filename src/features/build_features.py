@@ -8,23 +8,19 @@ import src.features.multivariate_analysis as ma
 import src.features.univariate_analysis as ua
 from src.data.make_dataset import DatasetMaker
 from src.features.other_transformers import (CategoryTypesTransformer,
-                                             ColumnsDropper, ColumnsMetadataPrefixer, FinalColumnTransformer,
+                                             ColumnsDropper,
+                                             FinalColumnTransformer,
                                              MissingValuesHandler)
 from src.utils import (Dataset, Metadata, PipelineMetadata, preprocess_init,
                        train_test_split_custom)
 
 
 class FeaturesBuilder:
-    verbose: int
-
-    def __init__(self, verbose: int = 0):
-        self.verbose = verbose
-
     @preprocess_init
     def initial_build(
-        self, df: Dataset, metadata: Metadata
+        self, df: Dataset, metadata: Metadata, verbose: int = 0
     ) -> Tuple[Dataset, Metadata]:
-        ic_obj = ic.InitialCleaner(PipelineMetadata(), self.verbose)
+        ic_obj = ic.InitialCleaner(PipelineMetadata(), verbose=verbose)
         df = ic_obj.start(df)
         metadata = ic_obj.metadata
 
@@ -57,27 +53,3 @@ class FeaturesBuilder:
         )
         data_transformation_pipeline.set_output(transform="pandas")
         return data_transformation_pipeline
-
-
-def main():
-    df_raw, metadata_raw = DatasetMaker("data/raw").start()
-
-    df_interim, metadata_interim = FeaturesBuilder(verbose=2).initial_build(
-        df=df_raw, metadata=metadata_raw
-    )
-
-    df_train, df_test = train_test_split_custom(df_interim)
-
-    pipe = FeaturesBuilder.make_pipeline(metadata_interim, verbose=2)
-
-    print(df_train.isna().sum().sum())
-    df_train_processed: Dataset = pipe.fit_transform(df_train) # type: ignore
-
-    print(df_raw.shape)
-    print(df_train.shape)
-    print(df_train_processed.shape)
-    print(df_train_processed.isna().sum().sum())
-
-
-if __name__ == "__main__":
-    main()

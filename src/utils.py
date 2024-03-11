@@ -134,11 +134,11 @@ def log_feature_info_dict(features_info: FeaturesInfo, title: str, verbose: int)
         logging.info(f"FeaturesInfo after {title}:\n" + features_info_str)
 
 
-def train_test_split_custom(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def train_test_split_custom(df: Dataset, test_size: float, random_seed: int) -> Tuple[Dataset, Dataset]:
     df_train, df_test = train_test_split(
         df,
-        test_size=config.TEST_SIZE,
-        random_state=config.RANDOM_SEED,
+        test_size=test_size,
+        random_state=random_seed,
     )
     return df_train, df_test
 
@@ -166,9 +166,9 @@ def save_metadata(file_name: str, path: str, metadata: Metadata) -> None:
         json.dump(metadata, file, cls=MetadataEncoder, indent=4)
 
 
-def get_X_set(df: Dataset) -> Dataset:
-    return df.drop(config.LABEL, axis=1)
+def get_X_set(df: Dataset, label_col: str) -> Dataset:
+    return df.drop(label_col, axis=1)
 
 
-def get_y_set(df: Dataset) -> Dataset:
-    return df[[config.LABEL]]
+def get_y_set(df: Dataset, label_col: str) -> Dataset:
+    return df[[label_col]]

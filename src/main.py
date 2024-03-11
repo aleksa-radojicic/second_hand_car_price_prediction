@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Literal, LiteralString
+from typing import Dict, List
 
 import hydra
 import numpy as np
@@ -9,18 +9,24 @@ from hydra.core.config_store import ConfigStore
 from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.pipeline import Pipeline
 
-from src import config
 from src.data.make_dataset import DatasetMaker
 from src.features.build_features import FeaturesBuilder
 from src.models.train_model import (HPTunerType, HyperparametersTuner, Metric,
-                                    Model, ModelConfig, Runner)
+                                    ModelConfig, Runner, set_random_seed)
 from src.utils import Dataset, get_X_set, get_y_set, train_test_split_custom
 
 
 @dataclass
 class Config:
+    test_size: float
+    random_seed: int
+    label_col: str
+
+    initial_build_verbose: int
+    features_builder_verbose: int
+
     models: list[ModelConfig]
-    metric: str # NOTE: Hydra DictConfig doesn't support Literal type hint
+    metric: str  # NOTE: Hydra DictConfig doesn't support Literal type hint
 
 
 cs: ConfigStore = ConfigStore.instance()
@@ -33,29 +39,43 @@ CONFIG_PATH: str = str(Path().absolute() / "config")
 def main(cfg: Config):
     df_raw, metadata_raw = DatasetMaker("data/raw").start()
 
-    df_interim, metadata_interim = FeaturesBuilder(verbose=2).initial_build(
-        df=df_raw, metadata=metadata_raw
+    df_interim, metadata_interim = FeaturesBuilder().initial_build(
+        df=df_raw, metadata=metadata_raw, verbose=cfg.initial_build_verbose
     )
 
-    df_train, df_test = train_test_split_custom(df_interim)
+    df_train, df_test = train_test_split_custom(
+        df=df_interim, test_size=cfg.test_size, random_seed=cfg.random_seed
+    )
 
-    preprocess_pipe = FeaturesBuilder.make_pipeline(metadata_interim, verbose=2)
+    preprocess_pipe = FeaturesBuilder.make_pipeline(
+        metadata_interim, verbose=cfg.features_builder_verbose
+    )
 
     df_train_prep: Dataset = pd.DataFrame(preprocess_pipe.fit_transform(df_train))
     df_test_prep: Dataset = pd.DataFrame(preprocess_pipe.transform(df_test))
 
-    # X_train_prep = get_X_set(df_train_prep)
-    # y_train_prep = get_y_set(df_train_prep)
+    X_train_prep: Dataset = get_X_set(df_train_prep, label_col=cfg.label_col)
+    y_train_prep: Dataset = get_y_set(df_train_prep, label_col=cfg.label_col)
+
+    X_test_prep: Dataset = get_X_set(df_test_prep, label_col=cfg.label_col)
+    y_test_prep: Dataset = get_y_set(df_test_prep, label_col=cfg.label_col)
 
     # # pipeline = Pipeline([("predictor", model)])
     pipeline = Pipeline([])
     # # pipeline = Pipeline([("preprocessor", preprocess_pipe)])
 
     model_configs: List[ModelConfig] = cfg.models
+    set_random_seed(model_configs=model_configs, random_seed=cfg.random_seed)
 
     results: Dict[str, float] = Runner(
         model_configs=model_configs, metric=Metric.from_name(cfg.metric)
-    ).start(pipeline=pipeline, df_train=df_train_prep, df_test=df_test_prep)
+    ).start(
+        pipeline=pipeline,
+        X_train=X_train_prep,
+        y_train=y_train_prep,
+        X_test=X_test_prep,
+        y_test=y_test_prep,
+    )
     print(results)
 
     # param_grid = {"predictor__base_model__alpha": np.linspace(0, 1, 100)}

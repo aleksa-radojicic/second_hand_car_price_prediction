@@ -1,15 +1,21 @@
 defaults:
-  - override hydra/hydra_logging: none
-  - override hydra/job_logging: custom
+  - override hydra/hydra_logging: "none"
+  - override hydra/job_logging: "custom"
+
+test_size: 0.2
+random_seed: 2024
+label_col: "price"
+initial_build_verbose: 2
+features_builder_verbose: 2
 
 models:
-  - name: my_ridge_high
-    type: ridge
+  - name: "my_ridge_high"
+    type: "ridge"
     hyperparameters:
       alpha: 1.0
   
-  - name: my_ridge_low
-    type: ridge
+  - name: "my_ridge_low"
+    type: "ridge"
     hyperparameters:
       alpha: 0
 metric: "rmse"
