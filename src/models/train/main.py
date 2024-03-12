@@ -1,7 +1,6 @@
-import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import hydra
 import pandas as pd
@@ -10,9 +9,9 @@ from sklearn.pipeline import Pipeline
 
 from src.data.make_dataset import DatasetMaker
 from src.features.build_features import FeaturesBuilder
-from src.models.train.train_model import (BaseModelConfig, Metric, Model,
-                                          Runner, deserialize_base_model,
-                                          set_random_seed)
+from src.models.models import BaseModelConfig, set_random_seed
+from src.models.train.train_model import (Metric, Model,
+                                          Runner, setup_models)
 from src.utils import Dataset, get_X_set, get_y_set, train_test_split_custom
 
 CONFIG_PATH: str = str(Path().absolute() / "config" / "train")
@@ -34,24 +33,6 @@ class TrainConfig:
     models: list[BaseModelConfig]
     metric: str  # NOTE: Hydra DictConfig doesn't support Literal type hint
 
-
-def setup_models(model_configs: list[BaseModelConfig], model_dir: str) -> list[Model]:
-    """Does setup of models using base models deserialized from the model directory and
-    adds provided configs in them."""
-
-    models: List[Model] = []
-
-    for model_cfg in model_configs:
-        base_model: Any = deserialize_base_model(
-            os.path.join(model_dir, model_cfg.type)
-        )
-        # Setup hyperparameters
-        base_model.set_params(**model_cfg.hyperparameters)
-
-        model = Model(name=model_cfg.name, base_model=base_model)
-        models.append(model)
-
-    return models
 
 
 cs: ConfigStore = ConfigStore.instance()
@@ -97,7 +78,8 @@ def main(cfg: TrainConfig):
 
     pipeline = Pipeline([])
 
-    results: Dict[str, float] = Runner(models=models, metric=metric).start(
+    runner: Runner = Runner(models=models, metric=metric)
+    results: Dict[str, float] = runner.start(
         pipeline=pipeline,
         X_train=X_train_prep,
         y_train=y_train_prep,
