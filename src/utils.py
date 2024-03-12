@@ -94,6 +94,13 @@ def pickle_object(file_path, obj):
     except Exception as e:
         raise e
 
+def unpickle_object(file_path) -> Any:
+    try:
+        with open(file_path, "rb") as file_obj:
+            obj: Any = pickle.load(file_obj)
+            return obj
+    except Exception as e:
+        raise e 
 
 def json_object(file_path, obj):
     import json

@@ -1,6 +1,7 @@
 import copy
+import os
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import Enum
 from typing import Any, Callable, Dict
 
 import xgboost as xgb
@@ -11,19 +12,16 @@ from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
 from sklearn.linear_model import Ridge
 from sklearn.metrics import (make_scorer, mean_absolute_error, r2_score,
                              root_mean_squared_error)
-from sklearn.model_selection import GridSearchCV, KFold
-from sklearn.model_selection._search import BaseSearchCV
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeRegressor
 
-from src import config
-from src.logger import log_message, logging
-from src.utils import Dataset
+from src.logger import logging
+from src.utils import Dataset, pickle_object, unpickle_object
 
 
 @dataclass
-class ModelConfig:
+class BaseModelConfig:
     name: str
     type: str
     hyperparameters: Dict[str, Any]
@@ -31,6 +29,8 @@ class ModelConfig:
 
 
 def set_random_seed(model_configs, random_seed: int) -> None:
+    """Sets random seed in every model configuration provided."""
+    
     # NOTE: model_configs is of type List[DictConfig]
     with open_dict(model_configs):
         for model_config in model_configs:
@@ -39,36 +39,11 @@ def set_random_seed(model_configs, random_seed: int) -> None:
 
 class Model(BaseEstimator, RegressorMixin):
     name: str
-    cfg: ModelConfig
+    base_model: Any  # TODO: Add correct type hints
 
-    # TODO: Add correct typehints
-    _all_base_models: Dict[str, Any]
-    base_model: Any
-
-    def __init__(self, cfg: ModelConfig):
-        self.cfg = cfg
-        self._all_base_models = self._create_all_base_models()
-        self.base_model = self.create_base_model()
-
-    def _create_all_base_models(self) -> Dict[str, Any]:
-        _rf_classifier = RandomForestRegressor(random_state=self.cfg.random_seed)
-        all_base_models: Dict[str, Any] = {
-            "dummy_mean": DummyRegressor(strategy="mean"),
-            "dummy_median": DummyRegressor(strategy="median"),
-            "ridge": Ridge(random_state=self.cfg.random_seed),
-            # "svr": SVR(),
-            "knn": KNeighborsRegressor(),
-            "dt": DecisionTreeRegressor(random_state=self.cfg.random_seed),
-            "ada": AdaBoostRegressor(random_state=self.cfg.random_seed),
-            "rf": _rf_classifier,
-            "xgb": xgb.XGBRegressor(),
-        }
-        return all_base_models
-
-    def create_base_model(self) -> Any:
-        base_model: Any = self._all_base_models[self.cfg.type]
-        base_model.set_params(**self.cfg.hyperparameters)
-        return base_model
+    def __init__(self, name: str, base_model: Any):
+        self.name = name
+        self.base_model = base_model
 
     def fit(self, X, y):
         self.base_model.fit(X, y)
@@ -164,33 +139,29 @@ def train_and_evaluate(
     model: Model = pipeline[-1]
 
     # Train
-    logging.info(f"Training predictor {model.cfg.name}...")
+    logging.info(f"Training predictor {model.name}...")
     pipeline.fit(X_train, y_train.values.ravel())
-    logging.info(f"Trained predictor {model.cfg.name} successfully.")
+    logging.info(f"Trained predictor {model.name} successfully.")
 
     # Evaluate
     evaluator = Evaluator(metric)
-    logging.info(f"Evaluating predictor {model.cfg.name}.")
+    logging.info(f"Evaluating predictor {model.name}.")
     metrics: Dict[str, float] = evaluator.start(
         pipeline, X_train, y_train, X_test, y_test
     )
-    logging.info(f"Evaluated predictor {model.cfg.name}.")
+    logging.info(f"Evaluated predictor {model.name}.")
 
     return metrics
 
 
 class Runner:
-    # TODO: Add correct typehints
+    # TODO: Add correct type hints
     models: list[Model]
     metric: Metric
 
-    def __init__(self, model_configs: list[ModelConfig], metric: Metric):
-        self.models = self.create_models(model_configs)
+    def __init__(self, models: list[Model], metric: Metric):
+        self.models = models
         self.metric = metric
-
-    def create_models(self, model_configs: list[ModelConfig]) -> list[Model]:
-        models: list[Model] = [Model(model_config) for model_config in model_configs]
-        return models
 
     def start(
         self,
@@ -211,71 +182,34 @@ class Runner:
                 main_pipe, X_train, y_train, X_test, y_test, self.metric
             )
 
-            logging.info(f"Train score for {model.cfg.name}: {scores['train']}")
-            logging.info(f"Test score for {model.cfg.name}: {scores['test']}")
+            logging.info(f"Train score for {model.name}: {scores['train']}")
+            logging.info(f"Test score for {model.name}: {scores['test']}")
 
-            results[model.cfg.name] = scores["test"]
+            results[model.name] = scores["test"]
         sorted_results = dict(sorted(results.items(), key=lambda x: x[1]))
         return sorted_results
 
 
-class HPTunerType(Enum):
-    GRID_SEARCH = auto()
+def serialize_base_models(dir: str) -> None:
+    _rf_classifier = RandomForestRegressor()
+
+    base_models: Dict[str, Any] = {
+        "dummy_mean": DummyRegressor(strategy="mean"),
+        "dummy_median": DummyRegressor(strategy="median"),
+        "ridge": Ridge(),
+        # "svr": SVR(),
+        "knn": KNeighborsRegressor(),
+        "dt": DecisionTreeRegressor(),
+        "ada": AdaBoostRegressor(),
+        "rf": _rf_classifier,
+        "xgb": xgb.XGBRegressor(),
+    }
+
+    for name, model in base_models.items():
+        file_path: str = os.path.join(dir, f"{name}.pkl")
+        pickle_object(file_path, model)
 
 
-class HyperparametersTuner:
-    name: str
-    metric: Metric
-    verbose: int
-
-    base_tuner: BaseSearchCV
-    _tuner_map: Dict[HPTunerType, BaseSearchCV]
-
-    def __init__(
-        self,
-        name: str,
-        type: HPTunerType,
-        estimator: BaseEstimator,
-        param_grid,
-        metric: Metric,
-        verbose: int,
-    ):
-        self.name = name
-        self.estimator = estimator
-        self.metric = metric
-        self.verbose = verbose
-        self.param_grid = param_grid
-
-        self._init_tuner_map()
-        self.base_tuner = self._tuner_map[type]
-
-    def _init_tuner_map(self):
-        cv_no = 5
-        cv = KFold(cv_no, shuffle=True, random_state=config.RANDOM_SEED)
-
-        self._tuner_map = {
-            HPTunerType.GRID_SEARCH: GridSearchCV(
-                self.estimator,
-                param_grid=self.param_grid,
-                cv=cv,
-                n_jobs=-1,
-                return_train_score=True,
-                verbose=self.verbose,
-                # refit=True,
-                scoring=self.metric.scorer,
-                error_score="raise",
-            )
-        }
-
-    def start(self, X: Dataset, y: Dataset) -> None:
-        log_message(f"Tuning hyperparameters {self.name}...", self.verbose)
-        self.base_tuner.fit(X=X, y=y)
-        log_message(f"Tuned hyperparameters {self.name} successfully.", self.verbose)
-
-
-def main():
-    pass
-
-
-if __name__ == "__main__":
-    main()
+def deserialize_base_model(file_path: str) -> Any:
+    base_model: Any = unpickle_object(file_path)
+    return base_model

@@ -1,23 +1,29 @@
+import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import hydra
-import numpy as np
 import pandas as pd
 from hydra.core.config_store import ConfigStore
-from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.pipeline import Pipeline
 
 from src.data.make_dataset import DatasetMaker
 from src.features.build_features import FeaturesBuilder
-from src.models.train_model import (HPTunerType, HyperparametersTuner, Metric,
-                                    ModelConfig, Runner, set_random_seed)
+from src.models.train.train_model import (BaseModelConfig, Metric, Model,
+                                          Runner, deserialize_base_model,
+                                          set_random_seed)
 from src.utils import Dataset, get_X_set, get_y_set, train_test_split_custom
+
+CONFIG_PATH: str = str(Path().absolute() / "config" / "train")
+BASE_MODEL_PATH: str = str(Path().absolute() / "models" / "base")
+CONFIG_FILE_NAME: str = "train"
+
+HYDRA_VERSION_BASE: str = "1.3.1"  # NOTE: Could be in config
 
 
 @dataclass
-class Config:
+class TrainConfig:
     test_size: float
     random_seed: int
     label_col: str
@@ -25,18 +31,40 @@ class Config:
     initial_build_verbose: int
     features_builder_verbose: int
 
-    models: list[ModelConfig]
+    models: list[BaseModelConfig]
     metric: str  # NOTE: Hydra DictConfig doesn't support Literal type hint
 
 
+def setup_models(model_configs: list[BaseModelConfig], model_dir: str) -> list[Model]:
+    """Does setup of models using base models deserialized from the model directory and
+    adds provided configs in them."""
+
+    models: List[Model] = []
+
+    for model_cfg in model_configs:
+        base_model: Any = deserialize_base_model(
+            os.path.join(model_dir, model_cfg.type)
+        )
+        # Setup hyperparameters
+        base_model.set_params(**model_cfg.hyperparameters)
+
+        model = Model(name=model_cfg.name, base_model=base_model)
+        models.append(model)
+
+    return models
+
+
 cs: ConfigStore = ConfigStore.instance()
-cs.store(name="scraping", node=Config)
-
-CONFIG_PATH: str = str(Path().absolute() / "config")
+cs.store(name="training", node=TrainConfig)
 
 
-@hydra.main(config_path=CONFIG_PATH, config_name="config", version_base="1.3.1")
-def main(cfg: Config):
+@hydra.main(
+    config_path=CONFIG_PATH,
+    config_name=CONFIG_FILE_NAME,
+    version_base=HYDRA_VERSION_BASE,
+)
+def main(cfg: TrainConfig):
+    # serialize_base_models(os.path.join("models", "base"))
     df_raw, metadata_raw = DatasetMaker("data/raw").start()
 
     df_interim, metadata_interim = FeaturesBuilder().initial_build(
@@ -60,16 +88,16 @@ def main(cfg: Config):
     X_test_prep: Dataset = get_X_set(df_test_prep, label_col=cfg.label_col)
     y_test_prep: Dataset = get_y_set(df_test_prep, label_col=cfg.label_col)
 
-    # # pipeline = Pipeline([("predictor", model)])
-    pipeline = Pipeline([])
-    # # pipeline = Pipeline([("preprocessor", preprocess_pipe)])
-
-    model_configs: List[ModelConfig] = cfg.models
+    model_configs: List[BaseModelConfig] = cfg.models
     set_random_seed(model_configs=model_configs, random_seed=cfg.random_seed)
+    metric: Metric = Metric.from_name(cfg.metric)
+    models: List[Model] = setup_models(
+        model_configs=model_configs, model_dir=BASE_MODEL_PATH
+    )
 
-    results: Dict[str, float] = Runner(
-        model_configs=model_configs, metric=Metric.from_name(cfg.metric)
-    ).start(
+    pipeline = Pipeline([])
+
+    results: Dict[str, float] = Runner(models=models, metric=metric).start(
         pipeline=pipeline,
         X_train=X_train_prep,
         y_train=y_train_prep,
@@ -77,22 +105,6 @@ def main(cfg: Config):
         y_test=y_test_prep,
     )
     print(results)
-
-    # param_grid = {"predictor__base_model__alpha": np.linspace(0, 1, 100)}
-
-    # hyperparameter_tuner = HyperparametersTuner(
-    #     name="Tuning 1",
-    #     type=HPTunerType.GRID_SEARCH,
-    #     estimator=pipeline,
-    #     param_grid=param_grid,
-    #     verbose=2,
-    # )
-    # hyperparameter_tuner.start(X_train_prep, y_train_prep)
-
-    # cv_results = hyperparameter_tuner.base_tuner.cv_results_ # type: ignore
-
-    # print(cv_results)
-    # print(hyperparameter_tuner.base_tuner.best_score_) # type: ignore
 
 
 if __name__ == "__main__":
