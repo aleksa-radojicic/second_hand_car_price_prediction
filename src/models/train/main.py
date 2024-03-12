@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List
 
@@ -8,10 +8,10 @@ from hydra.core.config_store import ConfigStore
 from sklearn.pipeline import Pipeline
 
 from src.data.make_dataset import DatasetMaker
-from src.features.build_features import FeaturesBuilder
+from src.features.build_features import FeaturesBuilder, FeaturesBuilderConfig
+from src.features.multivariate_analysis import MAConfig
 from src.models.models import BaseModelConfig, set_random_seed
-from src.models.train.train_model import (Metric, Model,
-                                          Runner, setup_models)
+from src.models.train.train_model import Metric, Model, Runner, setup_models
 from src.utils import Dataset, get_X_set, get_y_set, train_test_split_custom
 
 CONFIG_PATH: str = str(Path().absolute() / "config" / "train")
@@ -28,11 +28,13 @@ class TrainConfig:
     label_col: str
 
     initial_build_verbose: int
-    features_builder_verbose: int
 
     models: list[BaseModelConfig]
     metric: str  # NOTE: Hydra DictConfig doesn't support Literal type hint
 
+    features_builder: FeaturesBuilderConfig = field(
+        default_factory=FeaturesBuilderConfig
+    )
 
 
 cs: ConfigStore = ConfigStore.instance()
@@ -48,7 +50,9 @@ def main(cfg: TrainConfig):
     # serialize_base_models(os.path.join("models", "base"))
     df_raw, metadata_raw = DatasetMaker("data/raw").start()
 
-    df_interim, metadata_interim = FeaturesBuilder().initial_build(
+    features_builder: FeaturesBuilder = FeaturesBuilder(cfg.features_builder)
+
+    df_interim, metadata_interim = features_builder.initial_build(
         df=df_raw, metadata=metadata_raw, verbose=cfg.initial_build_verbose
     )
 
@@ -56,9 +60,7 @@ def main(cfg: TrainConfig):
         df=df_interim, test_size=cfg.test_size, random_seed=cfg.random_seed
     )
 
-    preprocess_pipe = FeaturesBuilder.make_pipeline(
-        metadata_interim, verbose=cfg.features_builder_verbose
-    )
+    preprocess_pipe: Pipeline = features_builder.make_pipeline(metadata_interim)
 
     df_train_prep: Dataset = pd.DataFrame(preprocess_pipe.fit_transform(df_train))
     df_test_prep: Dataset = pd.DataFrame(preprocess_pipe.transform(df_test))

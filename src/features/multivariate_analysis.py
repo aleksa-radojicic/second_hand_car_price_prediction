@@ -1,7 +1,5 @@
+from dataclasses import dataclass
 from typing import Optional, Tuple
-
-import numpy as np
-import pandas as pd
 
 from src import config
 from src.logger import log_message
@@ -9,16 +7,29 @@ from src.utils import (Dataset, Metadata, PipelineMetadata,
                        log_feature_info_dict, preprocess_init)
 
 
+@dataclass
+class MAConfig:
+    # Hyperparameters
+    high_seats_cars_flag: bool = True
+    oldtimers_flag: bool = True
+    low_kilometerage_cars_flag: bool = True
+    finalize_flag: bool = True
+
+
 class MACleaner:
     CF_PREFIX: str = "cf_"
     pipe_meta: PipelineMetadata
     cached_metadata: Optional[Metadata]
     verbose: int
+    cfg: MAConfig
 
-    def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
+    def __init__(
+        self, pipe_meta: PipelineMetadata, cfg: MAConfig = MAConfig(), verbose: int = 0
+    ):
         self.pipe_meta = pipe_meta
         self.cached_metadata = None
         self.verbose = verbose
+        self.cfg = cfg
 
     @property
     def metadata(self) -> Metadata:
@@ -132,14 +143,21 @@ class MACleaner:
 
         return df, metadata
 
-    @staticmethod
     @preprocess_init
-    def clean(df: Dataset, metadata=metadata) -> Tuple[Dataset, Metadata]:
+    def clean(self, df: Dataset, metadata=metadata) -> Tuple[Dataset, Metadata]:
         df, metadata = MACleaner.ma_irregular_label_rows(df=df, metadata=metadata)
-        df, metadata = MACleaner.ma_low_kilometerage_cars(df=df, metadata=metadata)
-        df, metadata = MACleaner.ma_high_seats_cars(df=df, metadata=metadata)
-        df, metadata = MACleaner.ma_oldtimers(df=df, metadata=metadata)
-        df, metadata = MACleaner.ma_finalize(df=df, metadata=metadata)
+
+        if self.cfg.low_kilometerage_cars_flag:
+            df, metadata = MACleaner.ma_low_kilometerage_cars(df=df, metadata=metadata)
+
+        if self.cfg.high_seats_cars_flag:
+            df, metadata = MACleaner.ma_high_seats_cars(df=df, metadata=metadata)
+
+        if self.cfg.oldtimers_flag:
+            df, metadata = MACleaner.ma_oldtimers(df=df, metadata=metadata)
+
+        if self.cfg.finalize_flag:
+            df, metadata = MACleaner.ma_finalize(df=df, metadata=metadata)
 
         return df, metadata
 
@@ -150,7 +168,7 @@ class MACleaner:
 
         metadata = self.cached_metadata
 
-        df, metadata = MACleaner.clean(df, metadata)
+        df, metadata = self.clean(df, metadata)
 
         log_feature_info_dict(
             metadata.features_info, "adding data type prefix to columns", self.verbose

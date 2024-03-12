@@ -179,3 +179,10 @@ def get_X_set(df: Dataset, label_col: str) -> Dataset:
 
 def get_y_set(df: Dataset, label_col: str) -> Dataset:
     return df[[label_col]]
+
+def add_prefix(prefix: str, **kwargs) -> Dict[str, Any]:
+    res_dict: Dict[str, Any] = {}
+    for k, v in kwargs.items():
+        prefixed_k = f"{prefix}{k}"
+        res_dict[prefixed_k] = v
+    return res_dict

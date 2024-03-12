@@ -14,7 +14,8 @@ from src.models.hp_tunning.hyperparameter_tuning import (HPTunerConfig,
                                                          HyperparametersTuner,
                                                          get_base_model)
 from src.models.train.train_model import Metric, Model
-from src.utils import Dataset, get_X_set, get_y_set, train_test_split_custom
+from src.utils import (Dataset, add_prefix, get_X_set, get_y_set,
+                       train_test_split_custom)
 
 # NOTE: Could be used as arguments in main and parsed
 CONFIG_PATH: str = str(Path().absolute() / "config" / "hyperparameters_tuning")
@@ -50,15 +51,19 @@ def setup_metric(cfg):
         cfg.metric = metric
 
 
-def create_param_grid(
-    predictor_name: str, base_model_name: str, model_hyperparams: Any
-) -> Dict[str, Any]:
+def create_param_grid(predictor_name: str, model_hyperparams: Any) -> Dict[str, Any]:
     param_grid: Dict[str, Any] = {}
     separator = "__"
 
-    for k, v in model_hyperparams.model.items():
-        adjusted_key = f"{predictor_name}{separator}{base_model_name}{separator}{k}"
-        param_grid[adjusted_key] = v
+    # Model param grid
+    predictor_prefix: str = f"{predictor_name}{separator}"
+    base_model_prefix: str = f"base_model{separator}"
+    model_prefix: str = f"{predictor_prefix}{base_model_prefix}"
+
+    model_param_grid: Dict[str, Any] = add_prefix(
+        prefix=model_prefix, **dict(model_hyperparams.model)
+    )
+    param_grid = {**param_grid, **model_param_grid}
     return param_grid
 
 
@@ -70,7 +75,9 @@ def create_param_grid(
 def main(cfg: HPConfig):
     df_raw, metadata_raw = DatasetMaker("data/raw").start()
 
-    df_interim, metadata_interim = FeaturesBuilder().initial_build(
+    features_builder: FeaturesBuilder = FeaturesBuilder()
+
+    df_interim, metadata_interim = features_builder.initial_build(
         df=df_raw, metadata=metadata_raw, verbose=cfg.initial_build_verbose
     )
 
@@ -78,9 +85,7 @@ def main(cfg: HPConfig):
         df=df_interim, test_size=cfg.test_size, random_seed=cfg.random_seed
     )
 
-    preprocess_pipe = FeaturesBuilder.make_pipeline(
-        metadata_interim, verbose=cfg.features_builder_verbose
-    )
+    preprocess_pipe = features_builder.make_pipeline(metadata_interim)
 
     df_train_prep: Dataset = pd.DataFrame(preprocess_pipe.fit_transform(df_train))
 
@@ -93,23 +98,20 @@ def main(cfg: HPConfig):
     model: Model = get_base_model(model_type=cfg.model_type, model_dir=BASE_MODEL_PATH)
 
     predictor_name: str = "predictor"
-    base_model_name: str = "base_model"
     pipeline = Pipeline([(predictor_name, model)])
 
     param_grid: Dict[str, Any] = create_param_grid(
-        predictor_name, base_model_name, cfg.hyperparameter_tuning.param_grid
+        predictor_name, cfg.hyperparameter_tuning.param_grid
     )
-    print(param_grid)
-    # param_grid: Dict[str, Any] = {
-    #     "predictor__base_model__alpha": np.linspace(0, 1, 100)
-    # }
 
     hyperparameter_tuner: HyperparametersTuner = HyperparametersTuner(
         cfg=hp_tuning_cfg, metric=metric
     )
-    hyperparameter_tuner.start(estimator=pipeline, param_grid=param_grid, X=X_train_prep, y=y_train_prep)
+    hyperparameter_tuner.start(
+        estimator=pipeline, param_grid=param_grid, X=X_train_prep, y=y_train_prep
+    )
 
-    cv_results = hyperparameter_tuner.tuner.cv_results_  # type: ignore
+    cv_results: Dict[str, Any] = hyperparameter_tuner.tuner.cv_results_  # type: ignore
     print(cv_results["mean_train_score"])
     print(cv_results["mean_test_score"])
 
@@ -119,4 +121,3 @@ def main(cfg: HPConfig):
 
 if __name__ == "__main__":
     main()
-    # kurva()

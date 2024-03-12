@@ -10,7 +10,6 @@ test_size: 0.2
 random_seed: 2024 # applied for all models
 label_col: "price"
 initial_build_verbose: 2
-features_builder_verbose: 2
 
 models:
   - name: "my_ridge_high"
@@ -22,8 +21,17 @@ models:
     type: ridge.pkl
     hyperparameters:
       alpha: 0
+
   - name: "my_ridge_medium"
     type: ridge.pkl
     hyperparameters:
       alpha: 0.5
 metric: "mae"
+
+features_builder:
+  ma_cleaner:
+    low_kilometerage_cars_flag: True
+    high_seats_cars_flag: True
+    oldtimers_flag: True
+    finalize_flag: True
+  verbose: 2

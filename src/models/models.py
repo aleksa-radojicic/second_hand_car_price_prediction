@@ -28,7 +28,7 @@ class BaseModelConfig:
 
 def set_random_seed(model_configs, random_seed: int) -> None:
     """Sets random seed in every model configuration provided."""
-    
+
     # NOTE: model_configs is of type List[DictConfig]
     with open_dict(model_configs):
         for model_config in model_configs:
@@ -100,7 +100,8 @@ class Metric:
             ),
         }
         return METRICS[type]
-    
+
+
 def serialize_base_models(dir: str) -> None:
     _rf_classifier = RandomForestRegressor()
 
@@ -125,8 +126,10 @@ def deserialize_base_model(file_path: str) -> Any:
     base_model: Any = unpickle_object(file_path)
     return base_model
 
+
 def main():
     serialize_base_models(dir=str(Path().absolute() / "models" / "base"))
+
 
 if __name__ == "__main__":
     main()
