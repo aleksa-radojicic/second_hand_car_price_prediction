@@ -5,19 +5,14 @@ import numpy as np
 import pandas as pd
 
 from src.features.utils import CustomTransformer
-from src.logger import log_message
-from src.utils import (Dataset, Metadata, PipelineMetadata,
-                       log_feature_info_dict, preprocess_init)
+from src.utils import Dataset, Metadata, PipelineMetadata, preprocess_init
 
 CF_PREFIX: str = "cf_"
 
 
 class InitialCleaner(CustomTransformer):
-    verbose: int
-
     def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
-        super().__init__(pipe_meta)
-        self.verbose = verbose
+        super().__init__(pipe_meta, verbose)
 
     @staticmethod
     @preprocess_init
@@ -509,18 +504,5 @@ class InitialCleaner(CustomTransformer):
         df, metadata = InitialCleaner.clean_individual_columns(df=df, metadata=metadata)
         return df, metadata
 
-    def transform(self, df: Dataset, y=None) -> Dataset:
-        log_message("Initial cleaning of the dataset started...", self.verbose)
-
-        df, self.output_metadata = InitialCleaner.clean(
-            df=df, metadata=self.input_metadata
-        )
-
-        log_feature_info_dict(
-            self.output_metadata.features_info,
-            "initial cleaning of the dataset",
-            self.verbose,
-        )
-
-        log_message("Initial cleaning of the dataset finished.", self.verbose)
-        return df
+    def start(self, df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
+        return self.clean(df, metadata)

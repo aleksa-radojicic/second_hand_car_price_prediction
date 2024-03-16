@@ -96,9 +96,9 @@ class PipelineMetadata:
         expects as its input.
     """
 
-    step_name: str
-    input_meta: Metadata
-    output_meta: Metadata
+    step_name: str = ""
+    input_meta: Metadata = field(default_factory=Metadata)
+    output_meta: Metadata = field(default_factory=Metadata)
 
     def update_output_meta(self, output_meta: Metadata):
         self.output_meta.__dict__ = output_meta.__dict__.copy()

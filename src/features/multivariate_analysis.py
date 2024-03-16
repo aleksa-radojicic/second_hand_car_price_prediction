@@ -3,9 +3,7 @@ from typing import Tuple
 
 from src import config
 from src.features.utils import CustomTransformer
-from src.logger import log_message
-from src.utils import (Dataset, Metadata, PipelineMetadata,
-                       log_feature_info_dict, preprocess_init)
+from src.utils import Dataset, Metadata, PipelineMetadata, preprocess_init
 
 
 @dataclass
@@ -22,14 +20,12 @@ CF_PREFIX: str = "cf_"
 
 class MACleaner(CustomTransformer):
     cfg: MAConfig
-    verbose: int = 0
 
     def __init__(
         self, pipe_meta: PipelineMetadata, cfg: MAConfig = MAConfig(), verbose: int = 0
     ):
-        super().__init__(pipe_meta)
+        super().__init__(pipe_meta, verbose)
         self.cfg = cfg
-        self.verbose = verbose
 
     @staticmethod
     @preprocess_init
@@ -135,37 +131,26 @@ class MACleaner(CustomTransformer):
 
         return df, metadata
 
+    @staticmethod
     @preprocess_init
-    def clean(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def clean(
+        df: Dataset, metadata: Metadata, cfg: MAConfig = MAConfig()
+    ) -> Tuple[Dataset, Metadata]:
         df, metadata = MACleaner.ma_irregular_label_rows(df=df, metadata=metadata)
 
-        if self.cfg.low_kilometerage_cars_flag:
+        if cfg.low_kilometerage_cars_flag:
             df, metadata = MACleaner.ma_low_kilometerage_cars(df=df, metadata=metadata)
 
-        if self.cfg.high_seats_cars_flag:
+        if cfg.high_seats_cars_flag:
             df, metadata = MACleaner.ma_high_seats_cars(df=df, metadata=metadata)
 
-        if self.cfg.oldtimers_flag:
+        if cfg.oldtimers_flag:
             df, metadata = MACleaner.ma_oldtimers(df=df, metadata=metadata)
 
-        if self.cfg.finalize_flag:
+        if cfg.finalize_flag:
             df, metadata = MACleaner.ma_finalize(df=df, metadata=metadata)
 
         return df, metadata
 
-    def transform(self, df: Dataset, y=None) -> Dataset:
-        log_message("Performing cleaning from Multivariate Analysis...", self.verbose)
-
-        df, self.output_metadata = self.clean(df, self.input_metadata)
-
-        log_feature_info_dict(
-            self.output_metadata.features_info,
-            "adding data type prefix to columns",
-            self.verbose,
-        )
-
-        log_message(
-            "Performed cleaning from Multivariate Analysis successfully.", self.verbose
-        )
-
-        return df
+    def start(self, df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
+        return self.clean(df, metadata)

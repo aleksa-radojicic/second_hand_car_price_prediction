@@ -49,7 +49,6 @@ class FeaturesBuilder:
         pipe_metas: list[PipelineMetadata] = create_pipeline_metadata_list(
             steps=pipeline_steps, init_metadata=metadata
         )
-        ft = FunctionTransformer
 
         # Define transformers
         ua_transformer = ua.UACleaner(pipe_metas[0], verbose)
