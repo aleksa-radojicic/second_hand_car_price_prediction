@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Tuple
 
 from src import config
+from src.features.utils import CustomTransformer
 from src.logger import log_message
 from src.utils import (Dataset, Metadata, PipelineMetadata,
                        log_feature_info_dict, preprocess_init)
@@ -19,28 +20,16 @@ class MAConfig:
 CF_PREFIX: str = "cf_"
 
 
-class MACleaner:
+class MACleaner(CustomTransformer):
     cfg: MAConfig
     verbose: int = 0
 
     def __init__(
         self, pipe_meta: PipelineMetadata, cfg: MAConfig = MAConfig(), verbose: int = 0
     ):
-        self.__pipe_meta: PipelineMetadata = pipe_meta
+        super().__init__(pipe_meta)
         self.cfg = cfg
         self.verbose = verbose
-
-    @property
-    def input_metadata(self) -> Metadata:
-        return self.__pipe_meta.input_meta
-
-    @property
-    def output_metadata(self) -> Metadata:
-        return self.__pipe_meta.output_meta
-
-    @output_metadata.setter
-    def output_metadata(self, metadata: Metadata):
-        self.__pipe_meta.update_output_meta(metadata)
 
     @staticmethod
     @preprocess_init
@@ -164,8 +153,7 @@ class MACleaner:
 
         return df, metadata
 
-    @preprocess_init
-    def start(self, df: Dataset, y=None) -> Dataset:
+    def transform(self, df: Dataset, y=None) -> Dataset:
         log_message("Performing cleaning from Multivariate Analysis...", self.verbose)
 
         df, self.output_metadata = self.clean(df, self.input_metadata)

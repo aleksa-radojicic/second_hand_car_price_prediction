@@ -1,11 +1,11 @@
 from typing import List, Self, Tuple
 
-from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
 from src import config
+from src.features.utils import CustomTransformer
 from src.logger import log_message
 from src.utils import (COLUMNS_NAN_STRATEGY_MAP, Dataset, Metadata,
                        PipelineMetadata, log_feature_info_dict,
@@ -23,27 +23,15 @@ def prefix_ds_metadata_columns(
     return ds, columns
 
 
-class ColumnsDropper:
+class ColumnsDropper(CustomTransformer):
     """Drops columns scheduled for deletion from the data frame and updates
     other columns list."""
 
     verbose: int
 
     def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
-        self.__pipe_meta: PipelineMetadata = pipe_meta
+        super().__init__(pipe_meta)
         self.verbose = verbose
-
-    @property
-    def input_metadata(self) -> Metadata:
-        return self.__pipe_meta.input_meta
-
-    @property
-    def output_metadata(self) -> Metadata:
-        return self.__pipe_meta.output_meta
-
-    @output_metadata.setter
-    def output_metadata(self, metadata: Metadata):
-        self.__pipe_meta.update_output_meta(metadata)
 
     @staticmethod
     @preprocess_init
@@ -76,8 +64,7 @@ class ColumnsDropper:
 
         return df, metadata
 
-    @preprocess_init
-    def start(self, df: Dataset, y=None) -> Dataset:
+    def transform(self, df: Dataset, y=None) -> Dataset:
         log_message("Dropping columns scheduled for deletion...", self.verbose)
 
         df, metadata = ColumnsDropper.drop(df, self.input_metadata)
@@ -95,7 +82,7 @@ class ColumnsDropper:
         return df
 
 
-class ColumnsMetadataPrefixer:
+class ColumnsMetadataPrefixer(CustomTransformer):
     """Adds prefix to column names denoting its data type."""
 
     verbose: int
@@ -106,20 +93,8 @@ class ColumnsMetadataPrefixer:
     NOM_COLS_PREFIX: str = "nominal__"
 
     def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0) -> None:
-        self.__pipe_meta: PipelineMetadata = pipe_meta
+        super().__init__(pipe_meta)
         self.verbose = verbose
-
-    @property
-    def input_metadata(self) -> Metadata:
-        return self.__pipe_meta.input_meta
-
-    @property
-    def output_metadata(self) -> Metadata:
-        return self.__pipe_meta.output_meta
-
-    @output_metadata.setter
-    def output_metadata(self, metadata: Metadata):
-        self.__pipe_meta.update_output_meta(metadata)
 
     @staticmethod
     @preprocess_init
@@ -141,23 +116,23 @@ class ColumnsMetadataPrefixer:
 
         return df, metadata
 
-    @preprocess_init
-    def start(self, df: Dataset, y=None) -> Dataset:
-        df, metadata = ColumnsMetadataPrefixer.prefix(df, self.input_metadata)
+    def transform(self, df: Dataset, y=None) -> Dataset:
+        df, self.output_metadata = ColumnsMetadataPrefixer.prefix(
+            df, self.input_metadata
+        )
 
         log_feature_info_dict(
-            metadata.features_info,
+            self.output_metadata.features_info,
             "adding data type prefix to columns",
             self.verbose,
         )
 
         log_message("Added data type prefix to columns successfully.", self.verbose)
 
-        self.output_metadata = metadata
         return df
 
 
-class CategoryTypesTransformer(TransformerMixin, BaseEstimator):
+class CategoryTypesTransformer(CustomTransformer):
     verbose: int
     n_jobs: int
     column_transformer: ColumnTransformer
@@ -165,22 +140,9 @@ class CategoryTypesTransformer(TransformerMixin, BaseEstimator):
     def __init__(
         self, pipe_meta: PipelineMetadata, verbose: int = 0, n_jobs: int = 1
     ) -> None:
-        super().__init__()
-        self.__pipe_meta: PipelineMetadata = pipe_meta
+        super().__init__(pipe_meta)
         self.verbose = verbose
         self.n_jobs = n_jobs
-
-    @property
-    def input_metadata(self) -> Metadata:
-        return self.__pipe_meta.input_meta
-
-    @property
-    def output_metadata(self) -> Metadata:
-        return self.__pipe_meta.output_meta
-
-    @output_metadata.setter
-    def output_metadata(self, metadata: Metadata):
-        self.__pipe_meta.update_output_meta(metadata)
 
     @preprocess_init
     def _create_column_transformer(self) -> ColumnTransformer:
@@ -233,11 +195,8 @@ class CategoryTypesTransformer(TransformerMixin, BaseEstimator):
         log_message("Handled category types successfully.", self.verbose)
         return dataset
 
-    def set_output(*args, **kwargs):
-        pass
 
-
-class MissingValuesHandler(TransformerMixin, BaseEstimator):
+class MissingValuesHandler(CustomTransformer):
     verbose: int
     n_jobs: int
     column_transformer: ColumnTransformer
@@ -245,22 +204,9 @@ class MissingValuesHandler(TransformerMixin, BaseEstimator):
     def __init__(
         self, pipe_meta: PipelineMetadata, verbose: int = 0, n_jobs: int = 1
     ) -> None:
-        super().__init__()
-        self.__pipe_meta: PipelineMetadata = pipe_meta
+        super().__init__(pipe_meta)
         self.verbose = verbose
         self.n_jobs = n_jobs
-
-    @property
-    def input_metadata(self) -> Metadata:
-        return self.__pipe_meta.input_meta
-
-    @property
-    def output_metadata(self) -> Metadata:
-        return self.__pipe_meta.output_meta
-
-    @output_metadata.setter
-    def output_metadata(self, metadata: Metadata):
-        self.__pipe_meta.update_output_meta(metadata)
 
     @preprocess_init
     def _create_column_transformer(self) -> ColumnTransformer:
@@ -301,11 +247,8 @@ class MissingValuesHandler(TransformerMixin, BaseEstimator):
         log_message("Handled missing values successfully.", self.verbose)
         return df
 
-    def set_output(*args, **kwargs):
-        pass
 
-
-class FinalColumnTransformer(TransformerMixin, BaseEstimator):
+class FinalColumnTransformer(CustomTransformer):
     verbose: int
     n_jobs: int
     column_transformer: ColumnTransformer
@@ -313,21 +256,9 @@ class FinalColumnTransformer(TransformerMixin, BaseEstimator):
     def __init__(
         self, pipe_meta: PipelineMetadata, verbose: int = 0, n_jobs: int = 1
     ) -> None:
-        self.__pipe_meta: PipelineMetadata = pipe_meta
+        super().__init__(pipe_meta)
         self.verbose = verbose
         self.n_jobs = n_jobs
-
-    @property
-    def input_metadata(self) -> Metadata:
-        return self.__pipe_meta.input_meta
-
-    @property
-    def output_metadata(self) -> Metadata:
-        return self.__pipe_meta.output_meta
-
-    @output_metadata.setter
-    def output_metadata(self, metadata: Metadata):
-        self.__pipe_meta.update_output_meta(metadata)
 
     @preprocess_init
     def _create_column_transformer(self) -> ColumnTransformer:
@@ -372,6 +303,3 @@ class FinalColumnTransformer(TransformerMixin, BaseEstimator):
 
         log_message("Applied final column transformer successfully.", self.verbose)
         return dataset
-
-    def set_output(*args, **kwargs):
-        pass

@@ -3,6 +3,7 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
+from src.features.utils import CustomTransformer
 from src.logger import log_message
 from src.utils import (Dataset, Metadata, PipelineMetadata,
                        log_feature_info_dict, preprocess_init)
@@ -10,24 +11,12 @@ from src.utils import (Dataset, Metadata, PipelineMetadata,
 CF_PREFIX = "cf_"
 
 
-class UACleaner:
+class UACleaner(CustomTransformer):
     verbose: int
 
     def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
-        self.__pipe_meta = pipe_meta
+        super().__init__(pipe_meta)
         self.verbose = verbose
-
-    @property
-    def input_metadata(self) -> Metadata:
-        return self.__pipe_meta.input_meta
-
-    @property
-    def output_metadata(self) -> Metadata:
-        return self.__pipe_meta.output_meta
-
-    @output_metadata.setter
-    def output_metadata(self, metadata: Metadata):
-        self.__pipe_meta.update_output_meta(metadata)
 
     @staticmethod
     @preprocess_init
@@ -218,7 +207,7 @@ class UACleaner:
 
         return df, metadata
 
-    def start(self, df: Dataset, y=None) -> Dataset:
+    def transform(self, df: Dataset, y=None) -> Dataset:
         log_message("Performing cleaning from Univariate Analysis...", self.verbose)
 
         df, self.output_metadata = UACleaner.clean(df, self.input_metadata)

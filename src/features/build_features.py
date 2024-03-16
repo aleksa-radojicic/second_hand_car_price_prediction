@@ -33,7 +33,7 @@ class FeaturesBuilder:
             pipe_meta=PipelineMetadata("", metadata, Metadata()),
             verbose=verbose,
         )
-        df = ic_obj.start(df)
+        df = ic_obj.fit_transform(df)  # type: ignore
         metadata = ic_obj.output_metadata
         return df, metadata
 
@@ -52,13 +52,12 @@ class FeaturesBuilder:
         ft = FunctionTransformer
 
         # Define transformers
-        ua_transformer = ft(ua.UACleaner(pipe_metas[0], verbose).start)
-        ma_transformer = ft(
-            ma.MACleaner(
-                pipe_meta=pipe_metas[1], cfg=self.cfg.ma_cleaner, verbose=verbose
-            ).start
+        ua_transformer = ua.UACleaner(pipe_metas[0], verbose)
+        ma_transformer = ma.MACleaner(
+            pipe_meta=pipe_metas[1], cfg=self.cfg.ma_cleaner, verbose=verbose
         )
-        columns_dropper = ft(ColumnsDropper(pipe_metas[2], verbose).start)
+
+        columns_dropper = ColumnsDropper(pipe_metas[2], verbose)
         cat_handler = CategoryTypesTransformer(pipe_metas[3], verbose)
         nan_handler = MissingValuesHandler(pipe_metas[4], verbose)
         final_ct = FinalColumnTransformer(pipe_metas[5], verbose)

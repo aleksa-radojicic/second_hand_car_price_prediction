@@ -1,5 +1,33 @@
+from typing import Self
+
 import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_selection import f_regression
+
+from src.utils import Dataset, Metadata, PipelineMetadata
+
+
+class CustomTransformer(TransformerMixin, BaseEstimator):
+    def __init__(self, pipe_meta: PipelineMetadata):
+        self.__pipe_meta: PipelineMetadata = pipe_meta
+
+    @property
+    def input_metadata(self) -> Metadata:
+        return self.__pipe_meta.input_meta
+
+    @property
+    def output_metadata(self) -> Metadata:
+        return self.__pipe_meta.output_meta
+
+    @output_metadata.setter
+    def output_metadata(self, metadata: Metadata):
+        self.__pipe_meta.update_output_meta(metadata)
+
+    def fit(self, df: Dataset, y=None) -> Self:
+        return self
+
+    def set_output(*args, **kwargs):
+        pass
 
 
 def get_anova_importance_scores(X: pd.DataFrame, y: pd.DataFrame) -> pd.DataFrame:
