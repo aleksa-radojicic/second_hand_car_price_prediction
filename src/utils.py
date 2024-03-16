@@ -4,14 +4,13 @@ import json
 import os
 import pickle
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from typeguard import check_type
 
-from src import config
 from src.config import FeaturesInfo
 from src.logger import logging
 
@@ -36,7 +35,7 @@ def init_features_info() -> FeaturesInfo:
 
 
 def init_cols_nan_strategy() -> ColsNanStrategy:
-    columns_nan_strategy = {
+    columns_nan_strategy: ColsNanStrategy = {
         "mean": [],
         "median": [],
         "modus": [],
@@ -80,7 +79,58 @@ class MetadataEncoder(json.JSONEncoder):
 
 @dataclass
 class PipelineMetadata:
-    data: Metadata = field(default_factory=Metadata)
+    """Class representing input and output metadata and step name.
+
+    The idea is every Transformer class should have input metadata that will expect and use.
+    After the Transformer finishes its transformations it will change output metadata which
+    will use next Transformer class (if present) and so on.
+
+    Attributes
+    ----------
+    step_name : str
+        Name of the transformer performing transformations.
+    input_meta : Metadata
+        Meta data that the current transformer expects.
+    output_meta : Metadata
+        Meta data that is the output of the current transformer, which the next transformer
+        expects as its input.
+    """
+
+    step_name: str
+    input_meta: Metadata
+    output_meta: Metadata
+
+    def update_output_meta(self, output_meta: Metadata):
+        self.output_meta.__dict__ = output_meta.__dict__.copy()
+
+
+def create_pipeline_metadata_list(
+    steps: list[str], init_metadata: Metadata
+) -> list[PipelineMetadata]:
+    """Create list of PipelineMetadata using list of pipeline step names and initial
+    metadata for the first step.
+
+    Every other metadata will be initialized using the default Metadata __init__.
+    """
+
+    data: list[PipelineMetadata] = []
+
+    # Prepare meta for first iteration
+    input_meta: Metadata = init_metadata
+    output_meta: Metadata = Metadata()
+
+    steps_length: int = len(steps)
+
+    for i in range(steps_length):
+        pipe_step: str = steps[i]
+
+        data.append(PipelineMetadata(pipe_step, input_meta, output_meta))
+
+        # Prepare meta for next iteration
+        input_meta = output_meta
+        output_meta = Metadata()
+
+    return data
 
 
 def pickle_object(file_path, obj):
@@ -94,13 +144,15 @@ def pickle_object(file_path, obj):
     except Exception as e:
         raise e
 
+
 def unpickle_object(file_path) -> Any:
     try:
         with open(file_path, "rb") as file_obj:
             obj: Any = pickle.load(file_obj)
             return obj
     except Exception as e:
-        raise e 
+        raise e
+
 
 def json_object(file_path, obj):
     import json
@@ -116,7 +168,7 @@ def json_object(file_path, obj):
         raise e
 
 
-def preprocess_init(func: Callable) -> Callable:
+def preprocess_init(func):
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Tuple[pd.DataFrame, FeaturesInfo]:
         if "df" in kwargs and isinstance(kwargs["df"], pd.DataFrame):
@@ -141,7 +193,9 @@ def log_feature_info_dict(features_info: FeaturesInfo, title: str, verbose: int)
         logging.info(f"FeaturesInfo after {title}:\n" + features_info_str)
 
 
-def train_test_split_custom(df: Dataset, test_size: float, random_seed: int) -> Tuple[Dataset, Dataset]:
+def train_test_split_custom(
+    df: Dataset, test_size: float, random_seed: int
+) -> Tuple[Dataset, Dataset]:
     df_train, df_test = train_test_split(
         df,
         test_size=test_size,
@@ -179,6 +233,7 @@ def get_X_set(df: Dataset, label_col: str) -> Dataset:
 
 def get_y_set(df: Dataset, label_col: str) -> Dataset:
     return df[[label_col]]
+
 
 def add_prefix(prefix: str, **kwargs) -> Dict[str, Any]:
     res_dict: Dict[str, Any] = {}

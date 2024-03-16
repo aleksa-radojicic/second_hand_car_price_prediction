@@ -1,15 +1,14 @@
-from typing import List, Optional, Tuple
+from typing import List, Self, Tuple
 
-import numpy as np
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
 from src import config
-from src.config import FeaturesInfo
 from src.logger import log_message
-from src.utils import (COLUMNS_NAN_STRATEGY_MAP, ColsNanStrategy, Dataset,
-                       Metadata, PipelineMetadata, log_feature_info_dict,
+from src.utils import (COLUMNS_NAN_STRATEGY_MAP, Dataset, Metadata,
+                       PipelineMetadata, log_feature_info_dict,
                        preprocess_init)
 
 
@@ -28,22 +27,23 @@ class ColumnsDropper:
     """Drops columns scheduled for deletion from the data frame and updates
     other columns list."""
 
-    pipe_meta: PipelineMetadata
-    cached_metadata: Optional[Metadata]
     verbose: int
 
     def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
-        self.pipe_meta = pipe_meta
-        self.cached_metadata = None
+        self.__pipe_meta: PipelineMetadata = pipe_meta
         self.verbose = verbose
 
     @property
-    def metadata(self) -> Metadata:
-        return self.pipe_meta.data
+    def input_metadata(self) -> Metadata:
+        return self.__pipe_meta.input_meta
 
-    @metadata.setter
-    def metadata(self, metadata):
-        self.pipe_meta.data = metadata
+    @property
+    def output_metadata(self) -> Metadata:
+        return self.__pipe_meta.output_meta
+
+    @output_metadata.setter
+    def output_metadata(self, metadata: Metadata):
+        self.__pipe_meta.update_output_meta(metadata)
 
     @staticmethod
     @preprocess_init
@@ -80,15 +80,10 @@ class ColumnsDropper:
     def start(self, df: Dataset, y=None) -> Dataset:
         log_message("Dropping columns scheduled for deletion...", self.verbose)
 
-        if not self.cached_metadata:
-            self.cached_metadata = self.metadata
-
-        metadata = self.cached_metadata
-
-        df, metadata = ColumnsDropper.drop(df, metadata)
+        df, metadata = ColumnsDropper.drop(df, self.input_metadata)
 
         log_feature_info_dict(
-            metadata.cols_nan_strategy,
+            metadata.features_info,
             "dropping columns scheduled for deletion",
             self.verbose,
         )
@@ -96,17 +91,13 @@ class ColumnsDropper:
         log_message(
             "Dropped columns scheduled for deletion successfully.", self.verbose
         )
-
-        self.metadata = metadata
-
+        self.output_metadata = metadata
         return df
 
 
 class ColumnsMetadataPrefixer:
     """Adds prefix to column names denoting its data type."""
 
-    pipe_meta: PipelineMetadata
-    cached_metadata: Optional[Metadata]
     verbose: int
 
     NUM_COLS_PREFIX: str = "numerical__"
@@ -115,17 +106,20 @@ class ColumnsMetadataPrefixer:
     NOM_COLS_PREFIX: str = "nominal__"
 
     def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0) -> None:
-        self.pipe_meta = pipe_meta
-        self.cached_metadata = None
+        self.__pipe_meta: PipelineMetadata = pipe_meta
         self.verbose = verbose
 
     @property
-    def metadata(self) -> Metadata:
-        return self.pipe_meta.data
+    def input_metadata(self) -> Metadata:
+        return self.__pipe_meta.input_meta
 
-    @metadata.setter
-    def metadata(self, metadata):
-        self.pipe_meta.data = metadata
+    @property
+    def output_metadata(self) -> Metadata:
+        return self.__pipe_meta.output_meta
+
+    @output_metadata.setter
+    def output_metadata(self, metadata: Metadata):
+        self.__pipe_meta.update_output_meta(metadata)
 
     @staticmethod
     @preprocess_init
@@ -149,50 +143,49 @@ class ColumnsMetadataPrefixer:
 
     @preprocess_init
     def start(self, df: Dataset, y=None) -> Dataset:
-        if not self.cached_metadata:
-            self.cached_metadata = self.metadata
-
-        metadata = self.cached_metadata
-
-        df, metadata = ColumnsMetadataPrefixer.prefix(df, metadata)
+        df, metadata = ColumnsMetadataPrefixer.prefix(df, self.input_metadata)
 
         log_feature_info_dict(
-            metadata.cols_nan_strategy,
+            metadata.features_info,
             "adding data type prefix to columns",
             self.verbose,
         )
 
         log_message("Added data type prefix to columns successfully.", self.verbose)
 
-        self.metadata = metadata
+        self.output_metadata = metadata
         return df
 
 
-class CategoryTypesTransformer:
-    pipe_meta: PipelineMetadata
-    cached_metadata: Optional[Metadata]
+class CategoryTypesTransformer(TransformerMixin, BaseEstimator):
     verbose: int
     n_jobs: int
-    column_transformer: Optional[ColumnTransformer] = None
+    column_transformer: ColumnTransformer
 
     def __init__(
         self, pipe_meta: PipelineMetadata, verbose: int = 0, n_jobs: int = 1
     ) -> None:
-        self.pipe_meta = pipe_meta
-        self.cached_metadata = None
+        super().__init__()
+        self.__pipe_meta: PipelineMetadata = pipe_meta
         self.verbose = verbose
         self.n_jobs = n_jobs
 
     @property
-    def metadata(self) -> Metadata:
-        return self.pipe_meta.data
+    def input_metadata(self) -> Metadata:
+        return self.__pipe_meta.input_meta
 
-    @metadata.setter
-    def metadata(self, metadata):
-        self.pipe_meta.data = metadata
+    @property
+    def output_metadata(self) -> Metadata:
+        return self.__pipe_meta.output_meta
+
+    @output_metadata.setter
+    def output_metadata(self, metadata: Metadata):
+        self.__pipe_meta.update_output_meta(metadata)
 
     @preprocess_init
-    def _get_column_transformer(self, features_info: FeaturesInfo) -> ColumnTransformer:
+    def _create_column_transformer(self) -> ColumnTransformer:
+        features_info = self.input_metadata.features_info
+
         binary_encoder = OrdinalEncoder(
             handle_unknown="use_encoded_value",
             unknown_value=config.UNKNOWN_VALUE_BINARY,
@@ -220,76 +213,58 @@ class CategoryTypesTransformer:
         column_transformer.set_output(transform="pandas")
         return column_transformer
 
-    def init_column_transformer(self):
-        if not self.cached_metadata:
-            self.cached_metadata = self.metadata
+    def fit(self, df: Dataset, y=None, **params) -> Self:
+        self.column_transformer = self._create_column_transformer()
+        self.column_transformer.fit(df, y=None, **params)
+        return self
 
-        features_info = self.cached_metadata.features_info
-
-        self.column_transformer = self._get_column_transformer(features_info)
-
-    def fit(self, df: Dataset, y=None, **params):
-        if not self.column_transformer:
-            self.init_column_transformer()
-
-        return self.column_transformer.fit(df, y=None, **params)  # type: ignore
-
-    def transform(self, df, **params):
+    def transform(self, df, **params) -> Dataset:
         log_message("Handling category types...", self.verbose)
 
-        if not self.column_transformer:
-            raise Exception(
-                f"Column transformer is None and should be instance of {ColumnTransformer.__name__}"
-            )
-
-        if not self.cached_metadata:
-            raise TypeError(
-                f"Cached metadata is None and should be instance of {Metadata.__name__}"
-            )
-
-        features_info = self.cached_metadata.features_info
+        dataset: Dataset = self.column_transformer.transform(df, **params)  # type: ignore
+        self.output_metadata = self.input_metadata
 
         log_feature_info_dict(
-            features_info,
+            self.output_metadata.features_info,
             "handling category types",
             self.verbose,
         )
 
         log_message("Handled category types successfully.", self.verbose)
-
-        return self.column_transformer.transform(df, **params)
+        return dataset
 
     def set_output(*args, **kwargs):
         pass
 
 
-class MissingValuesHandler:
-    pipe_meta: PipelineMetadata
-    cached_metadata: Optional[Metadata]
+class MissingValuesHandler(TransformerMixin, BaseEstimator):
     verbose: int
     n_jobs: int
-    column_transformer: Optional[ColumnTransformer] = None
+    column_transformer: ColumnTransformer
 
     def __init__(
         self, pipe_meta: PipelineMetadata, verbose: int = 0, n_jobs: int = 1
     ) -> None:
-        self.pipe_meta = pipe_meta
-        self.cached_metadata = None
+        super().__init__()
+        self.__pipe_meta: PipelineMetadata = pipe_meta
         self.verbose = verbose
         self.n_jobs = n_jobs
 
     @property
-    def metadata(self) -> Metadata:
-        return self.pipe_meta.data
+    def input_metadata(self) -> Metadata:
+        return self.__pipe_meta.input_meta
 
-    @metadata.setter
-    def metadata(self, metadata):
-        self.pipe_meta.data = metadata
+    @property
+    def output_metadata(self) -> Metadata:
+        return self.__pipe_meta.output_meta
+
+    @output_metadata.setter
+    def output_metadata(self, metadata: Metadata):
+        self.__pipe_meta.update_output_meta(metadata)
 
     @preprocess_init
-    def _get_column_transformer(
-        self, cols_nan_strategy: ColsNanStrategy
-    ) -> ColumnTransformer:
+    def _create_column_transformer(self) -> ColumnTransformer:
+        cols_nan_strategy = self.input_metadata.cols_nan_strategy
         transformers: list[Tuple[str, SimpleImputer, List[str]]] = []
 
         for nan_strategy, imputer_obj in COLUMNS_NAN_STRATEGY_MAP.items():
@@ -307,48 +282,18 @@ class MissingValuesHandler:
         column_transformer.set_output(transform="pandas")
         return column_transformer
 
-    @staticmethod
-    def filter_col_nan_strategy_map(
-        cols_nan_strategy: ColsNanStrategy,
-    ) -> ColsNanStrategy:
-        return cols_nan_strategy
-
-    def init_column_transformer(self):
-        if not self.cached_metadata:
-            self.cached_metadata = self.metadata
-
-        cols_nan_strategy = self.cached_metadata.cols_nan_strategy
-        cols_nan_strategy_filtered = MissingValuesHandler.filter_col_nan_strategy_map(
-            cols_nan_strategy
-        )
-
-        self.column_transformer = self._get_column_transformer(
-            cols_nan_strategy_filtered
-        )
-
-    def fit(self, X, y=None, **params):
-        if not self.column_transformer:
-            self.init_column_transformer()
-        return self.column_transformer.fit(X, y=None, **params)  # type: ignore
+    def fit(self, X, y=None, **params) -> Self:
+        self.column_transformer = self._create_column_transformer()
+        self.column_transformer.fit(X, y=None, **params)
+        return self
 
     def transform(self, X, **params) -> Dataset:
         log_message("Handling missing values...", self.verbose)
-
-        if not self.cached_metadata:
-            raise TypeError(
-                f"Cached metadata is None and should be instance of {Metadata.__name__}"
-            )
-        features_info = self.cached_metadata.features_info
-
-        if not self.column_transformer:
-            raise Exception(
-                f"Column transformer is None and should be instance of {ColumnTransformer.__name__}"
-            )
-
         df: Dataset = self.column_transformer.transform(X, **params)  # type: ignore
+        self.output_metadata = self.input_metadata
 
         log_feature_info_dict(
-            features_info,
+            self.output_metadata.features_info,
             "handling missing values",
             self.verbose,
         )
@@ -360,37 +305,44 @@ class MissingValuesHandler:
         pass
 
 
-class FinalColumnTransformer:
-    pipe_meta: PipelineMetadata
-    cached_metadata: Optional[Metadata]
+class FinalColumnTransformer(TransformerMixin, BaseEstimator):
     verbose: int
     n_jobs: int
-    column_transformer: Optional[ColumnTransformer] = None
+    column_transformer: ColumnTransformer
 
     def __init__(
         self, pipe_meta: PipelineMetadata, verbose: int = 0, n_jobs: int = 1
     ) -> None:
-        self.pipe_meta = pipe_meta
-        self.cached_metadata = None
+        self.__pipe_meta: PipelineMetadata = pipe_meta
         self.verbose = verbose
         self.n_jobs = n_jobs
 
     @property
-    def metadata(self) -> Metadata:
-        return self.pipe_meta.data
+    def input_metadata(self) -> Metadata:
+        return self.__pipe_meta.input_meta
 
-    @metadata.setter
-    def metadata(self, metadata):
-        self.pipe_meta.data = metadata
+    @property
+    def output_metadata(self) -> Metadata:
+        return self.__pipe_meta.output_meta
+
+    @output_metadata.setter
+    def output_metadata(self, metadata: Metadata):
+        self.__pipe_meta.update_output_meta(metadata)
 
     @preprocess_init
-    def _get_column_transformer(self, features_info: FeaturesInfo) -> ColumnTransformer:
+    def _create_column_transformer(self) -> ColumnTransformer:
+        features_info = self.input_metadata.features_info
+
         column_transformer = ColumnTransformer(
             [
                 ("numerical", "passthrough", features_info["numerical"]),
                 ("binary", "passthrough", features_info["binary"]),
                 ("ordinal", "passthrough", features_info["ordinal"]),
-                ("nominal", OneHotEncoder(sparse_output=False), features_info["nominal"]),
+                (
+                    "nominal",
+                    OneHotEncoder(sparse_output=False),
+                    features_info["nominal"],
+                ),
                 ("label", "passthrough", [config.LABEL]),
             ],
             remainder="drop",
@@ -401,44 +353,25 @@ class FinalColumnTransformer:
         column_transformer.set_output(transform="pandas")
         return column_transformer
 
-    def init_column_transformer(self):
-        if not self.cached_metadata:
-            self.cached_metadata = self.metadata
-
-        features_info = self.cached_metadata.features_info
-
-        self.column_transformer = self._get_column_transformer(features_info)
-
-    def fit(self, df: Dataset, y=None, **params):
-        if not self.column_transformer:
-            self.init_column_transformer()
-
-        return self.column_transformer.fit(df, y=None, **params)  # type: ignore
+    def fit(self, df: Dataset, y=None, **params) -> Self:
+        self.column_transformer = self._create_column_transformer()
+        self.column_transformer.fit(df, y=None, **params)
+        return self
 
     def transform(self, df, **params):
         log_message("Applying final column transformer...", self.verbose)
 
-        if not self.column_transformer:
-            raise Exception(
-                f"Column transformer is None and should be instance of {ColumnTransformer.__name__}"
-            )
-
-        if not self.cached_metadata:
-            raise TypeError(
-                f"Cached metadata is None and should be instance of {Metadata.__name__}"
-            )
-
-        features_info = self.cached_metadata.features_info
+        dataset: Dataset = self.column_transformer.transform(df, **params)  # type: ignore
+        self.output_metadata = self.input_metadata
 
         log_feature_info_dict(
-            features_info,
+            self.output_metadata.features_info,
             "applying final column transformer",
             self.verbose,
         )
 
         log_message("Applied final column transformer successfully.", self.verbose)
-
-        return self.column_transformer.transform(df, **params)
+        return dataset
 
     def set_output(*args, **kwargs):
         pass

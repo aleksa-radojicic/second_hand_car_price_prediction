@@ -9,10 +9,10 @@ from sklearn.pipeline import Pipeline
 
 from src.data.make_dataset import DatasetMaker
 from src.features.build_features import FeaturesBuilder, FeaturesBuilderConfig
-from src.features.multivariate_analysis import MAConfig
 from src.models.models import BaseModelConfig, set_random_seed
 from src.models.train.train_model import Metric, Model, Runner, setup_models
-from src.utils import Dataset, get_X_set, get_y_set, train_test_split_custom
+from src.utils import (Dataset, get_X_set, get_y_set,
+                       train_test_split_custom)
 
 CONFIG_PATH: str = str(Path().absolute() / "config" / "train")
 BASE_MODEL_PATH: str = str(Path().absolute() / "models" / "base")
@@ -32,9 +32,7 @@ class TrainConfig:
     models: list[BaseModelConfig]
     metric: str  # NOTE: Hydra DictConfig doesn't support Literal type hint
 
-    features_builder: FeaturesBuilderConfig = field(
-        default_factory=FeaturesBuilderConfig
-    )
+    features_builder: FeaturesBuilderConfig
 
 
 cs: ConfigStore = ConfigStore.instance()
@@ -53,14 +51,18 @@ def main(cfg: TrainConfig):
     features_builder: FeaturesBuilder = FeaturesBuilder(cfg.features_builder)
 
     df_interim, metadata_interim = features_builder.initial_build(
-        df=df_raw, metadata=metadata_raw, verbose=cfg.initial_build_verbose
+        df=df_raw,
+        metadata=metadata_raw,
+        verbose=cfg.initial_build_verbose,
     )
 
     df_train, df_test = train_test_split_custom(
         df=df_interim, test_size=cfg.test_size, random_seed=cfg.random_seed
     )
 
-    preprocess_pipe: Pipeline = features_builder.make_pipeline(metadata_interim)
+    preprocess_pipe: Pipeline = features_builder.make_pipeline(
+        metadata_interim, cfg.features_builder.verbose
+    )
 
     df_train_prep: Dataset = pd.DataFrame(preprocess_pipe.fit_transform(df_train))
     df_test_prep: Dataset = pd.DataFrame(preprocess_pipe.transform(df_test))

@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -7,25 +7,27 @@ from src.logger import log_message
 from src.utils import (Dataset, Metadata, PipelineMetadata,
                        log_feature_info_dict, preprocess_init)
 
+CF_PREFIX = "cf_"
+
 
 class UACleaner:
-    CF_PREFIX: str = "cf_"
-    pipe_meta: PipelineMetadata
-    cached_metadata: Optional[Metadata]
     verbose: int
 
     def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
-        self.pipe_meta = pipe_meta
-        self.cached_metadata = None
+        self.__pipe_meta = pipe_meta
         self.verbose = verbose
 
     @property
-    def metadata(self) -> Metadata:
-        return self.pipe_meta.data
+    def input_metadata(self) -> Metadata:
+        return self.__pipe_meta.input_meta
 
-    @metadata.setter
-    def metadata(self, metadata):
-        self.pipe_meta.data = metadata
+    @property
+    def output_metadata(self) -> Metadata:
+        return self.__pipe_meta.output_meta
+
+    @output_metadata.setter
+    def output_metadata(self, metadata: Metadata):
+        self.__pipe_meta.update_output_meta(metadata)
 
     @staticmethod
     @preprocess_init
@@ -207,7 +209,7 @@ class UACleaner:
 
     @staticmethod
     @preprocess_init
-    def clean(df: Dataset, metadata=metadata) -> Tuple[Dataset, Metadata]:
+    def clean(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         df, metadata = UACleaner.ua_nominal_features(df=df, metadata=metadata)
         df, metadata = UACleaner.ua_ordinal_features(df=df, metadata=metadata)
         df, metadata = UACleaner.ua_numerical_features(df=df, metadata=metadata)
@@ -219,20 +221,13 @@ class UACleaner:
     def start(self, df: Dataset, y=None) -> Dataset:
         log_message("Performing cleaning from Univariate Analysis...", self.verbose)
 
-        if not self.cached_metadata:
-            self.cached_metadata = self.metadata
-
-        metadata = self.cached_metadata
-
-        df, metadata = UACleaner.clean(df, metadata)
+        df, self.output_metadata = UACleaner.clean(df, self.input_metadata)
 
         log_feature_info_dict(
-            metadata.features_info,
+            self.output_metadata.features_info,
             "performing cleaning from Univariate Analysis",
             self.verbose,
         )
 
         log_message("Performed cleaning from Univariate Analysis.", self.verbose)
-
-        self.metadata = metadata
         return df

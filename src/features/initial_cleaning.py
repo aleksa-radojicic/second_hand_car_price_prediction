@@ -1,5 +1,5 @@
 import inspect
-from typing import Optional, Tuple
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -8,25 +8,27 @@ from src.logger import log_message
 from src.utils import (Dataset, Metadata, PipelineMetadata,
                        log_feature_info_dict, preprocess_init)
 
+CF_PREFIX: str = "cf_"
+
 
 class InitialCleaner:
-    CF_PREFIX: str = "cf_"
-    pipe_meta: PipelineMetadata
-    cached_metadata: Optional[Metadata]
     verbose: int
 
     def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
-        self.pipe_meta = pipe_meta
-        self.cached_metadata = None
+        self.__pipe_meta: PipelineMetadata = pipe_meta
         self.verbose = verbose
 
     @property
-    def metadata(self) -> Metadata:
-        return self.pipe_meta.data
+    def input_metadata(self) -> Metadata:
+        return self.__pipe_meta.input_meta
 
-    @metadata.setter
-    def metadata(self, metadata):
-        self.pipe_meta.data = metadata
+    @property
+    def output_metadata(self) -> Metadata:
+        return self.__pipe_meta.output_meta
+
+    @output_metadata.setter
+    def output_metadata(self, metadata: Metadata):
+        self.__pipe_meta.update_output_meta(metadata)
 
     @staticmethod
     @preprocess_init
@@ -65,7 +67,7 @@ class InitialCleaner:
     def _get_feature_name() -> str:
         """Returns name of the feature from the function that called this one."""
         function_name = inspect.stack()[1].function
-        feature_name = function_name[len(InitialCleaner.CF_PREFIX) :]
+        feature_name = function_name[len(CF_PREFIX) :]
 
         return feature_name
 
@@ -141,7 +143,9 @@ class InitialCleaner:
         features_info = metadata.features_info
 
         # Convert 'location' to categorical type (nominal)
-        df[feature_name] = pd.Categorical(df[feature_name].astype("object"), ordered=False)
+        df[feature_name] = pd.Categorical(
+            df[feature_name].astype("object"), ordered=False
+        )
 
         # Add 'location' to 'nominal' features
         features_info["nominal"].append(feature_name)
@@ -520,20 +524,15 @@ class InitialCleaner:
     def start(self, df: Dataset, y=None) -> Dataset:
         log_message("Initial cleaning of the dataset started...", self.verbose)
 
-        if not self.cached_metadata:
-            self.cached_metadata = self.metadata
-
-        metadata = self.cached_metadata
-
-        df, metadata = InitialCleaner.clean(df=df, metadata=metadata)
+        df, self.output_metadata = InitialCleaner.clean(
+            df=df, metadata=self.input_metadata
+        )
 
         log_feature_info_dict(
-            metadata.features_info,
+            self.output_metadata.features_info,
             "initial cleaning of the dataset",
             self.verbose,
         )
 
         log_message("Initial cleaning of the dataset finished.", self.verbose)
-
-        self.metadata = metadata
         return df

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Tuple
 
 from src import config
 from src.logger import log_message
@@ -16,28 +16,31 @@ class MAConfig:
     finalize_flag: bool = True
 
 
+CF_PREFIX: str = "cf_"
+
+
 class MACleaner:
-    CF_PREFIX: str = "cf_"
-    pipe_meta: PipelineMetadata
-    cached_metadata: Optional[Metadata]
-    verbose: int
     cfg: MAConfig
+    verbose: int = 0
 
     def __init__(
         self, pipe_meta: PipelineMetadata, cfg: MAConfig = MAConfig(), verbose: int = 0
     ):
-        self.pipe_meta = pipe_meta
-        self.cached_metadata = None
-        self.verbose = verbose
+        self.__pipe_meta: PipelineMetadata = pipe_meta
         self.cfg = cfg
+        self.verbose = verbose
 
     @property
-    def metadata(self) -> Metadata:
-        return self.pipe_meta.data
+    def input_metadata(self) -> Metadata:
+        return self.__pipe_meta.input_meta
 
-    @metadata.setter
-    def metadata(self, metadata):
-        self.pipe_meta.data = metadata
+    @property
+    def output_metadata(self) -> Metadata:
+        return self.__pipe_meta.output_meta
+
+    @output_metadata.setter
+    def output_metadata(self, metadata: Metadata):
+        self.__pipe_meta.update_output_meta(metadata)
 
     @staticmethod
     @preprocess_init
@@ -144,7 +147,7 @@ class MACleaner:
         return df, metadata
 
     @preprocess_init
-    def clean(self, df: Dataset, metadata=metadata) -> Tuple[Dataset, Metadata]:
+    def clean(self, df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
         df, metadata = MACleaner.ma_irregular_label_rows(df=df, metadata=metadata)
 
         if self.cfg.low_kilometerage_cars_flag:
@@ -163,18 +166,18 @@ class MACleaner:
 
     @preprocess_init
     def start(self, df: Dataset, y=None) -> Dataset:
-        if not self.cached_metadata:
-            self.cached_metadata = self.metadata
+        log_message("Performing cleaning from Multivariate Analysis...", self.verbose)
 
-        metadata = self.cached_metadata
-
-        df, metadata = self.clean(df, metadata)
+        df, self.output_metadata = self.clean(df, self.input_metadata)
 
         log_feature_info_dict(
-            metadata.features_info, "adding data type prefix to columns", self.verbose
+            self.output_metadata.features_info,
+            "adding data type prefix to columns",
+            self.verbose,
         )
 
-        log_message("Added data type prefix to columns successfully.", self.verbose)
+        log_message(
+            "Performed cleaning from Multivariate Analysis successfully.", self.verbose
+        )
 
-        self.metadata = metadata
         return df
