@@ -1,8 +1,11 @@
+from dataclasses import dataclass
 from typing import List, Self, Tuple
 
 from sklearn.compose import ColumnTransformer
+from sklearn.discriminant_analysis import StandardScaler
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
+from sklearn.preprocessing import (MinMaxScaler, OneHotEncoder, OrdinalEncoder,
+                                   RobustScaler)
 
 from src import config
 from src.features.utils import CustomTransformer
@@ -187,30 +190,51 @@ class MissingValuesHandler(CustomTransformer):
         return self.column_transformer.transform(df), self.input_metadata  # type: ignore
 
 
+@dataclass
+class FinalColumnTransformerConfig:
+    nominal_encoder: str = "ordinal"
+    numerical_encoder: str = "passthrough"
+
+
 class FinalColumnTransformer(CustomTransformer):
+    cfg: FinalColumnTransformerConfig
     n_jobs: int
     column_transformer: ColumnTransformer
 
     def __init__(
-        self, pipe_meta: PipelineMetadata, verbose: int = 0, n_jobs: int = 1
+        self,
+        pipe_meta: PipelineMetadata,
+        verbose: int = 0,
+        cfg: FinalColumnTransformerConfig = FinalColumnTransformerConfig(),
+        n_jobs: int = 1,
     ) -> None:
         super().__init__(pipe_meta, verbose)
+        self.cfg = cfg
         self.n_jobs = n_jobs
 
     @preprocess_init
     def _create_column_transformer(self) -> ColumnTransformer:
         features_info = self.input_metadata.features_info
 
+        numerical_encoder = {
+            "passthrough": "passthrough",
+            "standardscaler": StandardScaler(),
+            "robustscaler": RobustScaler(),
+            "minmaxscaler": MinMaxScaler(),
+        }[self.cfg.numerical_encoder]
+
+        nominal_encoder = {
+            "onehot": OneHotEncoder(sparse_output=False),
+            "ordinal": OrdinalEncoder(),
+        }[self.cfg.nominal_encoder]
+
         column_transformer = ColumnTransformer(
             [
-                ("numerical", "passthrough", features_info["numerical"]),
+                ("numerical", numerical_encoder, features_info["numerical"]),
                 ("binary", "passthrough", features_info["binary"]),
                 ("ordinal", "passthrough", features_info["ordinal"]),
-                (
-                    "nominal",
-                    OneHotEncoder(sparse_output=False),
-                    features_info["nominal"],
-                ),
+                ("nominal", nominal_encoder, features_info["nominal"]),
+                # NOTE: This should be in the InitialCleaning
                 ("label", "passthrough", [config.LABEL]),
             ],
             remainder="drop",

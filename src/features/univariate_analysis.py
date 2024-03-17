@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Tuple
 
 import numpy as np
@@ -8,10 +9,16 @@ from src.utils import Dataset, Metadata, PipelineMetadata, preprocess_init
 
 CF_PREFIX = "cf_"
 
+@dataclass
+class UAConfig:
+    pass
 
 class UACleaner(CustomTransformer):
-    def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
+    cfg: UAConfig
+    
+    def __init__(self, pipe_meta: PipelineMetadata, cfg: UAConfig = UAConfig(), verbose: int = 0):
         super().__init__(pipe_meta, verbose)
+        self.cfg = cfg
 
     @staticmethod
     @preprocess_init
@@ -193,7 +200,7 @@ class UACleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def clean(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def clean(df: Dataset, metadata: Metadata, cfg: UAConfig) -> Tuple[Dataset, Metadata]:
         df, metadata = UACleaner.ua_nominal_features(df=df, metadata=metadata)
         df, metadata = UACleaner.ua_ordinal_features(df=df, metadata=metadata)
         df, metadata = UACleaner.ua_numerical_features(df=df, metadata=metadata)
@@ -203,4 +210,4 @@ class UACleaner(CustomTransformer):
         return df, metadata
 
     def start(self, df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
-        return self.clean(df, metadata)
+        return self.clean(df, metadata, self.cfg)

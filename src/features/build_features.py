@@ -8,6 +8,7 @@ import src.features.univariate_analysis as ua
 from src.features.other_transformers import (CategoryTypesTransformer,
                                              ColumnsDropper,
                                              FinalColumnTransformer,
+                                             FinalColumnTransformerConfig,
                                              MissingValuesHandler)
 from src.utils import (Dataset, Metadata, PipelineMetadata,
                        create_pipeline_metadata_list, preprocess_init)
@@ -15,7 +16,11 @@ from src.utils import (Dataset, Metadata, PipelineMetadata,
 
 @dataclass
 class FeaturesBuilderConfig:
+    ua_cleaner: ua.UAConfig = field(default_factory=ua.UAConfig)
     ma_cleaner: ma.MAConfig = field(default_factory=ma.MAConfig)
+    final_ct: FinalColumnTransformerConfig = field(
+        default_factory=FinalColumnTransformerConfig
+    )
     verbose: int = 0
 
 
@@ -51,7 +56,9 @@ class FeaturesBuilder:
         )
 
         # Define transformers
-        ua_transformer = ua.UACleaner(pipe_metas[0], verbose)
+        ua_transformer = ua.UACleaner(
+            pipe_metas[0], cfg=self.cfg.ua_cleaner, verbose=verbose
+        )
         ma_transformer = ma.MACleaner(
             pipe_meta=pipe_metas[1], cfg=self.cfg.ma_cleaner, verbose=verbose
         )
@@ -59,7 +66,9 @@ class FeaturesBuilder:
         columns_dropper = ColumnsDropper(pipe_metas[2], verbose)
         cat_handler = CategoryTypesTransformer(pipe_metas[3], verbose)
         nan_handler = MissingValuesHandler(pipe_metas[4], verbose)
-        final_ct = FinalColumnTransformer(pipe_metas[5], verbose)
+        final_ct = FinalColumnTransformer(
+            pipe_metas[5], cfg=self.cfg.final_ct, verbose=verbose
+        )
 
         # Create pipeline
         data_transformation_pipeline = Pipeline(
