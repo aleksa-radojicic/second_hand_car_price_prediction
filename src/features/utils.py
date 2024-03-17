@@ -5,31 +5,32 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_selection import f_regression
 
 from src.logger import log_message
-from src.utils import Dataset, Metadata, PipelineMetadata, log_feature_info_dict
+from src.utils import (Dataset, Metadata, PipelineMetadata,
+                       log_feature_info_dict)
 
 
 class CustomTransformer(TransformerMixin, BaseEstimator):
     verbose: int
 
     def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
-        self.__pipe_meta: PipelineMetadata = pipe_meta
+        self.pipe_meta: PipelineMetadata = pipe_meta
         self.verbose = verbose
 
     @property
     def input_metadata(self) -> Metadata:
-        return self.__pipe_meta.input_meta
+        return self.pipe_meta.input_meta
 
     @property
     def step_name(self) -> str:
-        return self.__pipe_meta.step_name
+        return self.pipe_meta.step_name
 
     @property
     def output_metadata(self) -> Metadata:
-        return self.__pipe_meta.output_meta
+        return self.pipe_meta.output_meta
 
     @output_metadata.setter
     def output_metadata(self, metadata: Metadata):
-        self.__pipe_meta.update_output_meta(metadata)
+        self.pipe_meta.update_output_meta(metadata)
 
     def fit(self, df: Dataset, y=None) -> Self:
         return self
@@ -54,6 +55,14 @@ class CustomTransformer(TransformerMixin, BaseEstimator):
 
     def set_output(*args, **kwargs):
         pass
+
+    def get_params(self, deep: bool = True) -> dict:
+        """Override default get_params method to exclude information about
+        pipe_meta and verbose. Used when displaying the transformer."""
+        result: dict = super().get_params(deep)
+        del result["pipe_meta"]
+        del result["verbose"]
+        return result
 
 
 def get_anova_importance_scores(X: pd.DataFrame, y: pd.DataFrame) -> pd.DataFrame:

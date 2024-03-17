@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 
@@ -91,7 +91,6 @@ def main(cfg: TrainConfig):
         y_test=y_test_prep,
     )
     print(results)
-
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from sklearn.pipeline import FunctionTransformer, Pipeline
+from sklearn.pipeline import Pipeline
 
 import src.features.initial_cleaning as ic
 import src.features.multivariate_analysis as ma
