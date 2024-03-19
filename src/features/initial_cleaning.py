@@ -1,5 +1,5 @@
 import inspect
-from typing import Tuple
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -10,15 +10,37 @@ from src.utils import Dataset, Metadata, PipelineMetadata, preprocess_init
 CF_PREFIX: str = "cf_"
 
 
+@dataclass
+class InitialCleanerConfig:
+    # NOTE: Only use for config and not in InitialCleaner class
+    oldtimers_flag: bool = True
+    high_seats_cars_flag: bool = True
+    low_kilometerage_cars_flag: bool = True
+
+
 class InitialCleaner(CustomTransformer):
-    def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
+    oldtimers_flag: bool
+    high_seats_cars_flag: bool
+    low_kilometerage_cars_flag: bool
+
+    def __init__(
+        self,
+        pipe_meta: PipelineMetadata,
+        oldtimers_flag: bool = True,
+        high_seats_cars_flag: bool = True,
+        low_kilometerage_cars_flag: bool = True,
+        verbose: int = 0,
+    ):
         super().__init__(pipe_meta, verbose)
+        self.oldtimers_flag = oldtimers_flag
+        self.high_seats_cars_flag = high_seats_cars_flag
+        self.low_kilometerage_cars_flag = low_kilometerage_cars_flag
 
     @staticmethod
     @preprocess_init
     def initial_preparation(
         df: Dataset, metadata: Metadata
-    ) -> Tuple[Dataset, Metadata]:
+    ) -> tuple[Dataset, Metadata]:
         # Transform column type to string
         df.columns = df.columns.astype("string")
 
@@ -27,8 +49,8 @@ class InitialCleaner(CustomTransformer):
         id_1_col_idx = df.columns.get_loc("id_1")
         id_2_col_idx = df.columns.get_loc("id_2")
 
-        columns_from_gi = df.columns[id_1_col_idx + 1 : id_2_col_idx].values
-        columns_from_ai = df.columns[id_2_col_idx + 1 :].values
+        columns_from_gi = df.columns[id_1_col_idx + 1 : id_2_col_idx].values  # type: ignore
+        columns_from_ai = df.columns[id_2_col_idx + 1 :].values  # type: ignore
 
         # Add prefix 'gi_' to columns from table general_informations
         df.rename(
@@ -57,7 +79,7 @@ class InitialCleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def cf_name(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def cf_name(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         feature_name = InitialCleaner._get_feature_name()
 
         features_info = metadata.features_info
@@ -69,7 +91,7 @@ class InitialCleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def cf_short_url(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def cf_short_url(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         feature_name = InitialCleaner._get_feature_name()
 
         features_info = metadata.features_info
@@ -81,7 +103,7 @@ class InitialCleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def cf_price(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def cf_price(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         feature_name = InitialCleaner._get_feature_name()
 
         # Remove '.' from values and transform to numerical
@@ -104,7 +126,7 @@ class InitialCleaner(CustomTransformer):
     @preprocess_init
     def cf_listing_followers_no(
         df: Dataset, metadata: Metadata
-    ) -> Tuple[Dataset, Metadata]:
+    ) -> tuple[Dataset, Metadata]:
         feature_name = InitialCleaner._get_feature_name()
 
         features_info = metadata.features_info
@@ -121,7 +143,7 @@ class InitialCleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def cf_location(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def cf_location(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         feature_name = InitialCleaner._get_feature_name()
 
         features_info = metadata.features_info
@@ -138,7 +160,7 @@ class InitialCleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def cf_images_no(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def cf_images_no(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         feature_name = InitialCleaner._get_feature_name()
 
         features_info = metadata.features_info
@@ -155,7 +177,7 @@ class InitialCleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def cf_safety(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def cf_safety(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         feature_name = InitialCleaner._get_feature_name()
         prefix = "s_"
 
@@ -191,7 +213,7 @@ class InitialCleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def cf_equipment(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def cf_equipment(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         feature_name = InitialCleaner._get_feature_name()
         prefix = "e_"
 
@@ -231,7 +253,7 @@ class InitialCleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def cf_other(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def cf_other(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         feature_name = InitialCleaner._get_feature_name()
         prefix = "o_"
 
@@ -277,7 +299,7 @@ class InitialCleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def cf_description(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def cf_description(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         feature_name = InitialCleaner._get_feature_name()
 
         features_info = metadata.features_info
@@ -291,7 +313,7 @@ class InitialCleaner(CustomTransformer):
     @preprocess_init
     def c_general_informations(
         df: Dataset, metadata: Metadata
-    ) -> Tuple[Dataset, Metadata]:
+    ) -> tuple[Dataset, Metadata]:
         features_info = metadata.features_info
 
         pd.set_option("mode.chained_assignment", None)
@@ -367,7 +389,7 @@ class InitialCleaner(CustomTransformer):
     @preprocess_init
     def c_additional_informations(
         df: Dataset, metadata: Metadata
-    ) -> Tuple[Dataset, Metadata]:
+    ) -> tuple[Dataset, Metadata]:
         features_info = metadata.features_info
 
         pd.set_option("mode.chained_assignment", None)
@@ -477,9 +499,138 @@ class InitialCleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
+    def new_cars(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
+        """Insight gained in UnivariateAnalysis."""
+
+        idx_to_remove = metadata.idx_to_remove
+        df_cars_with_0_kilometerage = df[df.gi_kilometerage == 0]
+
+        # Remove cars with 'gi_kilometerage' = 0
+        df.drop(df_cars_with_0_kilometerage.index, inplace=True)
+        idx_to_remove.extend(df_cars_with_0_kilometerage.index.to_list())
+
+        return df, metadata
+
+    @staticmethod
+    @preprocess_init
+    def irregular_label_rows(
+        df: Dataset, metadata: Metadata
+    ) -> tuple[Dataset, Metadata]:
+        """Insight gained in MultivariateAnalysis."""
+
+        idx_to_remove = metadata.idx_to_remove
+
+        df_cars_equal_price_install_amt = df.loc[
+            df.price == df.ai_installment_amount, :
+        ]
+
+        # Remove cars where 'price' = 'ai_installment_amount'
+        df.drop(df_cars_equal_price_install_amt.index, axis=0, inplace=True)
+
+        idx_to_remove.extend(df_cars_equal_price_install_amt.index.tolist())
+
+        return df, metadata
+
+    @staticmethod
+    @preprocess_init
+    def oldtimers(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
+        """Insight gained in MultivariateAnalysis."""
+
+        idx_to_remove = metadata.idx_to_remove
+
+        oldtimers = df.loc[
+            df.o_Oldtimer,
+            [
+                "name",
+                "gi_production_year",
+                "price",
+                "short_url",
+                "gi_kilometerage",
+                "gi_engine_capacity",
+                "gi_engine_power",
+                "ai_seats_no",
+                "o_Restauriran",
+            ],
+        ]
+
+        seats_no = 2
+        oldtimer_2_seats = oldtimers[oldtimers.ai_seats_no == seats_no]
+
+        # Drop oldtimer cars with 'ai_seats_no' = {seats_no}
+        df.drop(oldtimer_2_seats.index, inplace=True)
+
+        idx_to_remove.extend(oldtimer_2_seats.index.tolist())
+
+        return df, metadata
+
+    @staticmethod
+    @preprocess_init
+    def high_seats_cars(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
+        """Insight gained in MultivariateAnalysis."""
+
+        idx_to_remove = metadata.idx_to_remove
+
+        high_seats_no = 5
+        high_seats = df.loc[df.ai_seats_no > high_seats_no, ["name", "ai_seats_no"]]
+
+        extreme_high_seats_no = 7
+        more_than_7_seats = high_seats[high_seats.ai_seats_no > extreme_high_seats_no]
+
+        # Drop cars where 'ai_seats_no' > {extreme_high_seats_no}
+        df.drop(more_than_7_seats.index, axis=0, inplace=True)
+
+        idx_to_remove.extend(more_than_7_seats.index.tolist())
+
+        return df, metadata
+
+    @staticmethod
+    @preprocess_init
+    def low_kilometerage_cars(
+        df: Dataset, metadata: Metadata
+    ) -> tuple[Dataset, Metadata]:
+        """Insight gained in MultivariateAnalysis."""
+
+        idx_to_remove = metadata.idx_to_remove
+
+        low_kilometerage_amount = 500
+        low_kilometerage_cars = df.loc[
+            df["gi_kilometerage"] < low_kilometerage_amount,
+            ["name", "short_url", "price", "gi_kilometerage"],
+        ]
+        # Drop cars where 'gi_kilometerage' < 500
+        df.drop(low_kilometerage_cars.index, axis=0, inplace=True)
+
+        idx_to_remove.extend(low_kilometerage_cars.index.tolist())
+
+        return df, metadata
+
+    @staticmethod
+    @preprocess_init
+    def c_remove_certain_rows(
+        df: Dataset,
+        metadata: Metadata,
+        oldtimers_flag: bool = True,
+        high_seats_cars_flag: bool = True,
+        low_kilometerage_cars_flag: bool = True,
+    ) -> tuple[Dataset, Metadata]:
+        df, metadata = InitialCleaner.new_cars(df, metadata)
+        df, metadata = InitialCleaner.irregular_label_rows(df, metadata)
+
+        if oldtimers_flag:
+            df, metadata = InitialCleaner.oldtimers(df, metadata)
+        if high_seats_cars_flag:
+            df, metadata = InitialCleaner.high_seats_cars(df=df, metadata=metadata)
+        if low_kilometerage_cars_flag:
+            df, metadata = InitialCleaner.low_kilometerage_cars(
+                df=df, metadata=metadata
+            )
+        return df, metadata
+
+    @staticmethod
+    @preprocess_init
     def clean_individual_columns(
         df: Dataset, metadata: Metadata
-    ) -> Tuple[Dataset, Metadata]:
+    ) -> tuple[Dataset, Metadata]:
         df, metadata = InitialCleaner.cf_name(df=df, metadata=metadata)
         df, metadata = InitialCleaner.cf_short_url(df=df, metadata=metadata)
         df, metadata = InitialCleaner.cf_price(df=df, metadata=metadata)
@@ -494,15 +645,17 @@ class InitialCleaner(CustomTransformer):
         df, metadata = InitialCleaner.c_additional_informations(
             df=df, metadata=metadata
         )
-
         return df, metadata
 
-    @staticmethod
     @preprocess_init
-    def clean(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def start(self, df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         df, metadata = InitialCleaner.initial_preparation(df=df, metadata=metadata)
         df, metadata = InitialCleaner.clean_individual_columns(df=df, metadata=metadata)
+        df, metadata = InitialCleaner.c_remove_certain_rows(
+            df=df,
+            metadata=metadata,
+            oldtimers_flag=self.oldtimers_flag,
+            high_seats_cars_flag=self.high_seats_cars_flag,
+            low_kilometerage_cars_flag=self.low_kilometerage_cars_flag,
+        )
         return df, metadata
-
-    def start(self, df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
-        return self.clean(df, metadata)

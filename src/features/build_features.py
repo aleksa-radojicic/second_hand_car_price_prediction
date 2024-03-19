@@ -16,8 +16,11 @@ from src.utils import (Dataset, Metadata, PipelineMetadata,
 
 @dataclass
 class FeaturesBuilderConfig:
-    ua_cleaner: ua.UAConfig = field(default_factory=ua.UAConfig)
-    ma_cleaner: ma.MAConfig = field(default_factory=ma.MAConfig)
+    init_cleaner: ic.InitialCleanerConfig = field(
+        default_factory=ic.InitialCleanerConfig
+    )
+    ua_cleaner: ua.UACleanerConfig = field(default_factory=ua.UACleanerConfig)
+    ma_cleaner: ma.MACleanerConfig = field(default_factory=ma.MACleanerConfig)
     final_ct: FinalColumnTransformerConfig = field(
         default_factory=FinalColumnTransformerConfig
     )
@@ -35,32 +38,29 @@ class FeaturesBuilder:
         self, df: Dataset, metadata: Metadata, verbose: int = 0
     ) -> tuple[Dataset, Metadata]:
         ic_obj = ic.InitialCleaner(
-            pipe_meta=PipelineMetadata("", metadata, Metadata()),
+            PipelineMetadata("", metadata, Metadata()),
+            self.cfg.init_cleaner.oldtimers_flag,
+            self.cfg.init_cleaner.high_seats_cars_flag,
+            self.cfg.init_cleaner.low_kilometerage_cars_flag,
             verbose=verbose,
         )
         df = ic_obj.fit_transform(df)  # type: ignore
         metadata = ic_obj.output_metadata
         return df, metadata
 
-    def make_pipeline(self, metadata: Metadata, verbose: int = 0) -> Pipeline:
-        pipeline_steps: list[str] = [
-            ua.UACleaner.__name__,
-            ma.MACleaner.__name__,
-            ColumnsDropper.__name__,
-            CategoryTypesTransformer.__name__,
-            MissingValuesHandler.__name__,
-            FinalColumnTransformer.__name__,
-        ]
+    def make_pipeline(
+        self, pipe_step_names: list[str], metadata: Metadata, verbose: int = 0
+    ) -> Pipeline:
         pipe_metas: list[PipelineMetadata] = create_pipeline_metadata_list(
-            steps=pipeline_steps, init_metadata=metadata
+            steps=pipe_step_names, init_metadata=metadata
         )
 
         # Define transformers
-        ua_transformer = ua.UACleaner(
-            pipe_metas[0], cfg=self.cfg.ua_cleaner, verbose=verbose
-        )
+        ua_transformer = ua.UACleaner(pipe_metas[0], verbose=verbose)
         ma_transformer = ma.MACleaner(
-            pipe_meta=pipe_metas[1], cfg=self.cfg.ma_cleaner, verbose=verbose
+            pipe_metas[1],
+            self.cfg.ma_cleaner.finalize_flag,
+            verbose=verbose,
         )
 
         columns_dropper = ColumnsDropper(pipe_metas[2], verbose)
@@ -73,12 +73,17 @@ class FeaturesBuilder:
         # Create pipeline
         data_transformation_pipeline = Pipeline(
             [
-                ("ua", ua_transformer),
-                ("ma", ma_transformer),
-                ("col_dropper", columns_dropper),
-                ("cat_handler", cat_handler),
-                ("nan_handler", nan_handler),
-                ("final_ct", final_ct),
+                *zip(
+                    pipe_step_names,
+                    (
+                        ua_transformer,
+                        ma_transformer,
+                        columns_dropper,
+                        cat_handler,
+                        nan_handler,
+                        final_ct,
+                    ),
+                )
             ]
         )
         data_transformation_pipeline.set_output(transform="pandas")

@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -9,22 +8,21 @@ from src.utils import Dataset, Metadata, PipelineMetadata, preprocess_init
 
 CF_PREFIX = "cf_"
 
+
 @dataclass
-class UAConfig:
+class UACleanerConfig:
     pass
 
+
 class UACleaner(CustomTransformer):
-    cfg: UAConfig
-    
-    def __init__(self, pipe_meta: PipelineMetadata, cfg: UAConfig = UAConfig(), verbose: int = 0):
+    def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
         super().__init__(pipe_meta, verbose)
-        self.cfg = cfg
 
     @staticmethod
     @preprocess_init
     def ua_nominal_features(
         df: Dataset, metadata: Metadata
-    ) -> Tuple[Dataset, Metadata]:
+    ) -> tuple[Dataset, Metadata]:
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
 
@@ -78,7 +76,7 @@ class UACleaner(CustomTransformer):
     @preprocess_init
     def ua_ordinal_features(
         df: Dataset, metadata: Metadata
-    ) -> Tuple[Dataset, Metadata]:
+    ) -> tuple[Dataset, Metadata]:
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
 
@@ -104,10 +102,9 @@ class UACleaner(CustomTransformer):
     @preprocess_init
     def ua_numerical_features(
         df: Dataset, metadata: Metadata
-    ) -> Tuple[Dataset, Metadata]:
+    ) -> tuple[Dataset, Metadata]:
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
-        idx_to_remove = metadata.idx_to_remove
 
         const_strat_cols_zero = ["listing_followers_no"]
 
@@ -124,12 +121,6 @@ class UACleaner(CustomTransformer):
             if col not in const_strat_cols_zero + cols_scheduled_for_deletion
         ]
 
-        df_cars_with_0_kilometerage = df[df.gi_kilometerage == 0]
-
-        # Remove cars with 'gi_kilometerage' = 0
-        df.drop(df_cars_with_0_kilometerage.index, inplace=True)
-        idx_to_remove.extend(df_cars_with_0_kilometerage.index.to_list())
-
         # Replace extreme value of 'gi_engine_capacity' with NaN (will be replaced with median)
         df.loc[df.gi_engine_capacity > 0.2 * 1e8, "gi_engine_capacity"] = np.nan
 
@@ -142,7 +133,7 @@ class UACleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def ua_binary_features(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def ua_binary_features(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
 
@@ -172,7 +163,7 @@ class UACleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def ua_other_features(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def ua_other_features(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
 
@@ -198,9 +189,8 @@ class UACleaner(CustomTransformer):
 
         return df, metadata
 
-    @staticmethod
     @preprocess_init
-    def clean(df: Dataset, metadata: Metadata, cfg: UAConfig) -> Tuple[Dataset, Metadata]:
+    def start(self, df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         df, metadata = UACleaner.ua_nominal_features(df=df, metadata=metadata)
         df, metadata = UACleaner.ua_ordinal_features(df=df, metadata=metadata)
         df, metadata = UACleaner.ua_numerical_features(df=df, metadata=metadata)
@@ -208,6 +198,3 @@ class UACleaner(CustomTransformer):
         df, metadata = UACleaner.ua_other_features(df=df, metadata=metadata)
 
         return df, metadata
-
-    def start(self, df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
-        return self.clean(df, metadata, self.cfg)

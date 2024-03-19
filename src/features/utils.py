@@ -56,13 +56,15 @@ class CustomTransformer(TransformerMixin, BaseEstimator):
     def set_output(*args, **kwargs):
         pass
 
-    def get_params(self, deep: bool = True) -> dict:
-        """Override default get_params method to exclude information about
-        pipe_meta and verbose. Used when displaying the transformer."""
-        result: dict = super().get_params(deep)
-        del result["pipe_meta"]
-        del result["verbose"]
-        return result
+    # ! Needs to solve how to display pipeline without pipe_meta and verbose keys
+    # ! because this approach doesn't when tuning hyperparameters.
+    # def get_params(self, deep: bool = True) -> dict:
+    #     """Override default get_params method to exclude information about
+    #     pipe_meta and verbose. Used when displaying the transformer."""
+    #     result: dict = super().get_params(deep)
+    #     del result["pipe_meta"]
+    #     del result["verbose"]
+    #     return result
 
 
 def get_anova_importance_scores(X: pd.DataFrame, y: pd.DataFrame) -> pd.DataFrame:

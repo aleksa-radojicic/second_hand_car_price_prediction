@@ -29,11 +29,12 @@ models:
 metric: "mae"
 
 features_builder:
-  ua_cleaner:
-  ma_cleaner:
+  init_cleaner:
     low_kilometerage_cars_flag: True
     high_seats_cars_flag: True
     oldtimers_flag: True
+  ua_cleaner:
+  ma_cleaner:
     finalize_flag: True
   final_ct:
     numerical_encoder: "passthrough"

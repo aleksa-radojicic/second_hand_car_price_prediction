@@ -1,7 +1,8 @@
 import collections
+import copy
 import inspect
 import os
-from typing import Set, Tuple
+from typing import Callable, Optional, Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +14,7 @@ from scipy import stats
 
 from src import config
 from src.config import FeaturesInfo
+from src.features.utils import CustomTransformer
 from src.utils import (ColsNanStrategy, Dataset, Metadata, load_dataset,
                        load_metadata, save_dataset, save_metadata)
 
@@ -29,7 +31,7 @@ STAGES_DICT = [
 def get_feature_name() -> str:
     """Returns name of the feature from the function that called this one."""
     function_name = inspect.stack()[1].function
-    feature_name = function_name[len(CF_PREFIX) : -len(NB_SUFFIX)]
+    feature_name = function_name[len(CF_PREFIX) :]
     return feature_name
 
 
@@ -215,6 +217,118 @@ def test_cols_nan_strategy_duplicates(cols_nan_strategy: ColsNanStrategy):
         raise AssertionError(
             f"Cols_nan_strategy contains following duplicate features:\n{dupe_cols_freq}"
         )
+
+
+class TestNotebookGeneric:
+    def __init__(self, transformer_obj: CustomTransformer):
+        self.__transformer_obj = copy.deepcopy(transformer_obj)
+
+    # @pytest.fixture
+    def df(self) -> Dataset:
+        raise NotImplemented
+
+    # @pytest.fixture
+    def metadata(self) -> Metadata:
+        raise NotImplemented
+
+    @property
+    def transformer_obj(self) -> CustomTransformer:
+        return copy.deepcopy(self.__transformer_obj)
+
+    def _test_single_func(
+        self,
+        func_py: Callable,
+        func_nb: Callable,
+        df: Optional[Dataset] = None,
+        metadata: Optional[Metadata] = None,
+    ):
+        """Assure two input functions have identical datasets and metadata.
+
+        Features info is being tested if they contain duplicate values.
+
+        Parameters
+        ----------
+        func_py : Callable
+            Function defined in .py file.
+        func_nb : Callable
+            Function defined in .ipynb notebook.
+        """
+
+        if df is None:
+            df = self.df()
+
+        if metadata is None:
+            metadata = self.metadata()
+
+        df_py, metadata_py = func_py(df=df, metadata=metadata)
+        df_nb, metadata_nb = func_nb(df=df, metadata=metadata)
+
+        pd.testing.assert_frame_equal(df_py, df_nb)
+        assert metadata_py == metadata_nb
+
+        # Test features info for duplicates
+        test_features_info_duplicates(metadata_py.features_info)
+        test_features_info_duplicates(metadata_nb.features_info)
+
+    def test_single_funcs(self):
+        raise NotImplementedError
+
+    def _test_whole_component(
+        self,
+        df_init_py: Dataset,
+        metadata_init_py: Metadata,
+        df_nb: Dataset,
+        metadata_nb: Metadata,
+    ):
+        df_py, metadata_py = self.transformer_obj.start(
+            df=df_init_py, metadata=metadata_init_py
+        )
+        pd.testing.assert_frame_equal(df_py, df_nb)
+        assert metadata_py == metadata_nb
+
+    def _test_whole_component_complex(
+        self,
+        df_init_py: Dataset,
+        metadata_init_py: Metadata,
+        df_nb: Dataset,
+        metadata_nb: Metadata,
+    ):
+        df_py, metadata_py = self.transformer_obj.start(
+            df=df_init_py, metadata=metadata_init_py
+        )
+        pd.testing.assert_frame_equal(df_py, df_nb)
+        assert metadata_py == metadata_nb
+
+        # Test features info for duplicates
+        test_features_info_duplicates(metadata_py.features_info)
+        test_features_info_duplicates(metadata_nb.features_info)
+
+        # Test features info with columns
+        test_features_info_with_columns(df_py, metadata_py.features_info)
+        test_features_info_with_columns(df_nb, metadata_nb.features_info)
+
+        # Test columns nan strategy for duplicates
+        test_cols_nan_strategy_duplicates(metadata_py.cols_nan_strategy)
+        test_cols_nan_strategy_duplicates(metadata_nb.cols_nan_strategy)
+
+        # Test columns nan strategy with features info
+        test_cols_nan_strategy_with_features_info(
+            metadata_py.cols_nan_strategy, metadata_py.features_info
+        )
+        test_cols_nan_strategy_with_features_info(
+            metadata_nb.cols_nan_strategy, metadata_nb.features_info
+        )
+
+
+def get_func_from_globals(func: Callable) -> Callable:
+    result_func_name: str = func.__name__
+    result_func: Callable = globals()[result_func_name]
+
+    if not callable(result_func):
+        raise Exception(
+            f"Provided function {func.__name__} is not a function in globals."
+        )
+    return result_func
 
 
 def test_cols_nan_strategy_with_features_info(

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Self, Tuple
+from typing import Self
 
 from sklearn.compose import ColumnTransformer
 from sklearn.discriminant_analysis import StandardScaler
@@ -14,8 +14,8 @@ from src.utils import (COLUMNS_NAN_STRATEGY_MAP, Dataset, Metadata,
 
 
 def prefix_ds_metadata_columns(
-    ds: Dataset, columns: List[str], prefix: str
-) -> Tuple[Dataset, List[str]]:
+    ds: Dataset, columns: list[str], prefix: str
+) -> tuple[Dataset, list[str]]:
     ds.rename(
         columns={c: f"{prefix}{c}" for c in columns},
         inplace=True,
@@ -33,7 +33,7 @@ class ColumnsDropper(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def drop(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def drop(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
 
@@ -79,7 +79,7 @@ class ColumnsMetadataPrefixer(CustomTransformer):
 
     @staticmethod
     @preprocess_init
-    def prefix(df: Dataset, metadata: Metadata) -> Tuple[Dataset, Metadata]:
+    def prefix(df: Dataset, metadata: Metadata) -> tuple[Dataset, Metadata]:
         features_info = metadata.features_info
 
         df, features_info["numerical"] = prefix_ds_metadata_columns(
@@ -164,7 +164,7 @@ class MissingValuesHandler(CustomTransformer):
     @preprocess_init
     def _create_column_transformer(self) -> ColumnTransformer:
         cols_nan_strategy = self.input_metadata.cols_nan_strategy
-        transformers: list[Tuple[str, SimpleImputer, List[str]]] = []
+        transformers: list[tuple[str, SimpleImputer, list[str]]] = []
 
         for nan_strategy, imputer_obj in COLUMNS_NAN_STRATEGY_MAP.items():
             columns_for_applying = cols_nan_strategy[nan_strategy]
@@ -235,7 +235,7 @@ class FinalColumnTransformer(CustomTransformer):
                 ("ordinal", "passthrough", features_info["ordinal"]),
                 ("nominal", nominal_encoder, features_info["nominal"]),
                 # NOTE: This should be in the InitialCleaning
-                ("label", "passthrough", [config.LABEL]),
+                # ("label", "passthrough", [config.LABEL]),
             ],
             remainder="drop",
             verbose_feature_names_out=False,

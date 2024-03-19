@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
 
 import hydra
 import pandas as pd
@@ -11,14 +10,20 @@ from src.data.make_dataset import DatasetMaker
 from src.features.build_features import FeaturesBuilder, FeaturesBuilderConfig
 from src.models.models import BaseModelConfig, set_random_seed
 from src.models.train.train_model import Metric, Model, Runner, setup_models
-from src.utils import (Dataset, get_X_set, get_y_set,
-                       train_test_split_custom)
+from src.utils import Dataset, get_X_set, get_y_set, train_test_split_custom
 
 CONFIG_PATH: str = str(Path().absolute() / "config" / "train")
 BASE_MODEL_PATH: str = str(Path().absolute() / "models" / "base")
 CONFIG_FILE_NAME: str = "train"
-
 HYDRA_VERSION_BASE: str = "1.3.1"  # NOTE: Could be in config
+PIPELINE_STEP_NAMES: list[str] = [
+    "ua_clean",
+    "ma_clean",
+    "col_dropper",
+    "cat_handler",
+    "nan_handler",
+    "final_ct",
+]
 
 
 @dataclass
@@ -60,37 +65,38 @@ def main(cfg: TrainConfig):
         df=df_interim, test_size=cfg.test_size, random_seed=cfg.random_seed
     )
 
+    X_train: Dataset = get_X_set(df_train, label_col=cfg.label_col)
+    y_train: Dataset = get_y_set(df_train, label_col=cfg.label_col)
+
+    X_test: Dataset = get_X_set(df_test, label_col=cfg.label_col)
+    y_test: Dataset = get_y_set(df_test, label_col=cfg.label_col)
+
     preprocess_pipe: Pipeline = features_builder.make_pipeline(
-        metadata_interim, cfg.features_builder.verbose
+        PIPELINE_STEP_NAMES, metadata_interim, cfg.features_builder.verbose
     )
 
-    df_train_prep: Dataset = pd.DataFrame(preprocess_pipe.fit_transform(df_train))
-    df_test_prep: Dataset = pd.DataFrame(preprocess_pipe.transform(df_test))
+    X_train_prep: Dataset = pd.DataFrame(preprocess_pipe.fit_transform(X_train))
+    X_test_prep: Dataset = pd.DataFrame(preprocess_pipe.transform(X_test))
 
-    X_train_prep: Dataset = get_X_set(df_train_prep, label_col=cfg.label_col)
-    y_train_prep: Dataset = get_y_set(df_train_prep, label_col=cfg.label_col)
-
-    X_test_prep: Dataset = get_X_set(df_test_prep, label_col=cfg.label_col)
-    y_test_prep: Dataset = get_y_set(df_test_prep, label_col=cfg.label_col)
-
-    model_configs: List[BaseModelConfig] = cfg.models
+    model_configs: list[BaseModelConfig] = cfg.models
     set_random_seed(model_configs=model_configs, random_seed=cfg.random_seed)
     metric: Metric = Metric.from_name(cfg.metric)
-    models: List[Model] = setup_models(
+    models: list[Model] = setup_models(
         model_configs=model_configs, model_dir=BASE_MODEL_PATH
     )
 
     pipeline = Pipeline([])
 
     runner: Runner = Runner(models=models, metric=metric)
-    results: Dict[str, float] = runner.start(
+    results: dict[str, float] = runner.start(
         pipeline=pipeline,
         X_train=X_train_prep,
-        y_train=y_train_prep,
+        y_train=y_train,
         X_test=X_test_prep,
-        y_test=y_test_prep,
+        y_test=y_test,
     )
     print(results)
+
 
 if __name__ == "__main__":
     main()
