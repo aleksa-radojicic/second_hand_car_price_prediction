@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from src.features.utils import CustomTransformer
-from src.utils import Dataset, Metadata, PipelineMetadata, preprocess_init
+from src.utils import Dataset, Metadata, preprocess_init
 
 CF_PREFIX: str = "cf_"
 
@@ -25,13 +25,11 @@ class InitialCleaner(CustomTransformer):
 
     def __init__(
         self,
-        pipe_meta: PipelineMetadata,
         oldtimers_flag: bool = True,
         high_seats_cars_flag: bool = True,
         low_kilometerage_cars_flag: bool = True,
-        verbose: int = 0,
     ):
-        super().__init__(pipe_meta, verbose)
+        super().__init__()
         self.oldtimers_flag = oldtimers_flag
         self.high_seats_cars_flag = high_seats_cars_flag
         self.low_kilometerage_cars_flag = low_kilometerage_cars_flag

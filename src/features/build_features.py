@@ -1,7 +1,5 @@
 from dataclasses import dataclass, field
 
-from sklearn.pipeline import Pipeline
-
 import src.features.initial_cleaning as ic
 import src.features.multivariate_analysis as ma
 import src.features.univariate_analysis as ua
@@ -9,7 +7,8 @@ from src.features.other_transformers import (CategoryTypesTransformer,
                                              ColumnsDropper,
                                              FinalColumnTransformer,
                                              FinalColumnTransformerConfig,
-                                             MissingValuesHandler)
+                                             MissingValuesHandler,
+                                             PreprocessorPipeline)
 from src.utils import (Dataset, Metadata, PipelineMetadata,
                        create_pipeline_metadata_list, preprocess_init)
 
@@ -37,12 +36,14 @@ class FeaturesBuilder:
     def initial_build(
         self, df: Dataset, metadata: Metadata, verbose: int = 0
     ) -> tuple[Dataset, Metadata]:
-        ic_obj = ic.InitialCleaner(
-            PipelineMetadata("", metadata, Metadata()),
-            self.cfg.init_cleaner.oldtimers_flag,
-            self.cfg.init_cleaner.high_seats_cars_flag,
-            self.cfg.init_cleaner.low_kilometerage_cars_flag,
-            verbose=verbose,
+        ic_obj = (
+            ic.InitialCleaner(
+                self.cfg.init_cleaner.oldtimers_flag,
+                self.cfg.init_cleaner.high_seats_cars_flag,
+                self.cfg.init_cleaner.low_kilometerage_cars_flag,
+            )
+            .set_pipe_meta(PipelineMetadata("", metadata, Metadata()))
+            .set_verbose(verbose)
         )
         df = ic_obj.fit_transform(df)  # type: ignore
         metadata = ic_obj.output_metadata
@@ -50,28 +51,41 @@ class FeaturesBuilder:
 
     def make_pipeline(
         self, pipe_step_names: list[str], metadata: Metadata, verbose: int = 0
-    ) -> Pipeline:
+    ) -> PreprocessorPipeline:
         pipe_metas: list[PipelineMetadata] = create_pipeline_metadata_list(
             steps=pipe_step_names, init_metadata=metadata
         )
 
         # Define transformers
-        ua_transformer = ua.UACleaner(pipe_metas[0], verbose=verbose)
-        ma_transformer = ma.MACleaner(
-            pipe_metas[1],
-            self.cfg.ma_cleaner.finalize_flag,
-            verbose=verbose,
+        ua_transformer = (
+            ua.UACleaner().set_pipe_meta(pipe_metas[0]).set_verbose(verbose)
+        )
+        ma_transformer = (
+            ma.MACleaner(self.cfg.ma_cleaner.finalize_flag)
+            .set_pipe_meta(pipe_metas[1])
+            .set_verbose(verbose)
         )
 
-        columns_dropper = ColumnsDropper(pipe_metas[2], verbose)
-        cat_handler = CategoryTypesTransformer(pipe_metas[3], verbose)
-        nan_handler = MissingValuesHandler(pipe_metas[4], verbose)
-        final_ct = FinalColumnTransformer(
-            pipe_metas[5], cfg=self.cfg.final_ct, verbose=verbose
+        columns_dropper = (
+            ColumnsDropper().set_pipe_meta(pipe_metas[2]).set_verbose(verbose)
+        )
+        cat_handler = (
+            CategoryTypesTransformer().set_pipe_meta(pipe_metas[3]).set_verbose(verbose)
+        )
+        nan_handler = (
+            MissingValuesHandler().set_pipe_meta(pipe_metas[4]).set_verbose(verbose)
+        )
+        final_ct = (
+            FinalColumnTransformer(
+                nominal_encoder=self.cfg.final_ct.nominal_encoder,
+                numerical_encoder=self.cfg.final_ct.numerical_encoder,
+            )
+            .set_pipe_meta(pipe_metas[5])
+            .set_verbose(verbose)
         )
 
         # Create pipeline
-        data_transformation_pipeline = Pipeline(
+        data_transformation_pipeline = PreprocessorPipeline(
             [
                 *zip(
                     pipe_step_names,

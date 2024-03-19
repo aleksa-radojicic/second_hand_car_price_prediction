@@ -30,6 +30,7 @@ PIPELINE_STEP_NAMES: list[str] = [
     "nan_handler",
     "final_ct",
 ]
+PREPROCESSOR_NAME: str = "preprocessor"
 PREDICTOR_NAME: str = "predictor"
 
 
@@ -60,6 +61,7 @@ def setup_metric(cfg):
 
 
 def create_param_grid(
+    preprocessor_name: str,
     predictor_name: str,
     pipe_step_names: list[str],
     hyperparams: Any,
@@ -71,8 +73,8 @@ def create_param_grid(
 
     for step_name in pipe_step_names:
         try:
-            step_name_prefix: str = f"{step_name}{separator}"
-            step_param_grid: dict[str, Any] = add_prefix(
+            step_name_prefix = f"{preprocessor_name}{separator}{step_name}{separator}"
+            step_param_grid = add_prefix(
                 prefix=step_name_prefix, **hyperparams[step_name]
             )
             premodel_param_grid = {**premodel_param_grid, **step_param_grid}
@@ -120,15 +122,18 @@ def main(cfg: HPConfig):
     hp_tuning_cfg: HPTunerConfig = cfg.hyperparameter_tuning
     metric: Metric = Metric.from_name(cfg.metric)
 
-    preprocess_pipe: Pipeline = features_builder.make_pipeline(
+    preprocess_pipe = features_builder.make_pipeline(
         PIPELINE_STEP_NAMES, metadata_interim
     )
     model: Model = get_base_model(model_type=cfg.model_type, model_dir=BASE_MODEL_PATH)
 
-    pipeline = Pipeline([*preprocess_pipe.steps, (PREDICTOR_NAME, model)])
+    pipeline = Pipeline([(PREPROCESSOR_NAME, preprocess_pipe), (PREDICTOR_NAME, model)])
 
     param_grid: dict[str, Any] = create_param_grid(
-        PREDICTOR_NAME, PIPELINE_STEP_NAMES, cfg.hyperparameter_tuning.param_grid
+        PREPROCESSOR_NAME,
+        PREDICTOR_NAME,
+        PIPELINE_STEP_NAMES,
+        cfg.hyperparameter_tuning.param_grid,
     )
 
     hyperparameter_tuner: HyperparametersTuner = HyperparametersTuner(

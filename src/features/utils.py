@@ -12,25 +12,29 @@ from src.utils import (Dataset, Metadata, PipelineMetadata,
 class CustomTransformer(TransformerMixin, BaseEstimator):
     verbose: int
 
-    def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
-        self.pipe_meta: PipelineMetadata = pipe_meta
+    def set_pipe_meta(self, pipe_meta: PipelineMetadata) -> Self:
+        self._pipe_meta = pipe_meta
+        return self
+
+    def set_verbose(self, verbose: int = 0) -> Self:
         self.verbose = verbose
+        return self
 
     @property
     def input_metadata(self) -> Metadata:
-        return self.pipe_meta.input_meta
+        return self._pipe_meta.input_meta
 
     @property
     def step_name(self) -> str:
-        return self.pipe_meta.step_name
+        return self._pipe_meta.step_name
 
     @property
     def output_metadata(self) -> Metadata:
-        return self.pipe_meta.output_meta
+        return self._pipe_meta.output_meta
 
     @output_metadata.setter
     def output_metadata(self, metadata: Metadata):
-        self.pipe_meta.update_output_meta(metadata)
+        self._pipe_meta.update_output_meta(metadata)
 
     def fit(self, df: Dataset, y=None) -> Self:
         return self

@@ -1,5 +1,4 @@
 import os
-from typing import Dict, List
 
 import numpy as np
 
@@ -15,31 +14,31 @@ UNKNOWN_VALUE_BINARY = -1
 UNKNOWN_VALUE_ORDINAL = np.nan
 UNKNOWN_VALUE_NOMINAL = np.nan
 
-FeaturesInfo = Dict[str, List[str]]
+FeaturesInfo = dict[str, list[str]]
 """Custom type alias representing a dictionary containing information about feature categories.
 
 Structure
 ---------
 {
-    'numerical': List[str]
+    'numerical': list[str]
         List of column names for numerical features.
-    'binary': List[str]
+    'binary': list[str]
         List of column names for binary features.
-    'ordinal': List[str]
+    'ordinal': list[str]
         List of column names for ordinal features.
-    'nominal': List[str]
+    'nominal': list[str]
         List of column names for nominal features.
-    'derived_numerical': List[str]
+    'derived_numerical': list[str]
         List of column names for derived numerical features.
-    'derived_binary': List[str]
+    'derived_binary': list[str]
         List of column names for derived binary features.
-    'derived_ordinal': List[str]
+    'derived_ordinal': list[str]
         List of column names for derived ordinal features.
-    'derived_nominal': List[str]
+    'derived_nominal': list[str]
         List of column names for derived nominal features.
-    'other': List[str]
+    'other': list[str]
         List of other features.
-    'features_to_delete': List[str]
+    'features_to_delete': list[str]
         List of column names for features to be deleted.
 }
 """

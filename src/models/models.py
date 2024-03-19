@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 import xgboost as xgb
 from omegaconf.omegaconf import open_dict
@@ -22,14 +22,14 @@ from src.utils import pickle_object, unpickle_object
 class BaseModelConfig:
     name: str
     type: str
-    hyperparameters: Dict[str, Any]
+    hyperparameters: dict[str, Any]
     random_seed: int = 0
 
 
 def set_random_seed(model_configs, random_seed: int) -> None:
     """Sets random seed in every model configuration provided."""
 
-    # NOTE: model_configs is of type List[DictConfig]
+    # NOTE: model_configs is of type list[DictConfig]
     with open_dict(model_configs):
         for model_config in model_configs:
             model_config.random_seed = random_seed
@@ -105,7 +105,7 @@ class Metric:
 def serialize_base_models(dir: str) -> None:
     _rf_classifier = RandomForestRegressor()
 
-    base_models: Dict[str, Any] = {
+    base_models: dict[str, Any] = {
         "dummy_mean": DummyRegressor(strategy="mean"),
         "dummy_median": DummyRegressor(strategy="median"),
         "ridge": Ridge(),

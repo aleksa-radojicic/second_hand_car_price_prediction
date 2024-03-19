@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from src.features.utils import CustomTransformer
-from src.utils import Dataset, Metadata, PipelineMetadata, preprocess_init
+from src.utils import Dataset, Metadata, preprocess_init
 
 CF_PREFIX = "cf_"
 
@@ -15,8 +15,8 @@ class UACleanerConfig:
 
 
 class UACleaner(CustomTransformer):
-    def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
-        super().__init__(pipe_meta, verbose)
+    def __init__(self):
+        super().__init__()
 
     @staticmethod
     @preprocess_init

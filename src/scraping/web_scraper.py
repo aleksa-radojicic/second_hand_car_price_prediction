@@ -1,5 +1,3 @@
-from typing import List
-
 from bs4 import BeautifulSoup
 from tbselenium.tbdriver import TorBrowserDriver
 
@@ -161,9 +159,7 @@ def create_soup(page_source: str):
     return BeautifulSoup(page_source, "lxml")
 
 
-def get_listing_urls_from_page(
-    driver: TorBrowserDriver,
-) -> List[str]:
+def get_listing_urls_from_page(driver: TorBrowserDriver) -> list[str]:
     soup = create_soup(driver.page_source)
     anchors = soup.find_all("a", class_="ga-title")
     listing_urls = [f"{INDEX_PAGE_URL}{anchor.get('href')}" for anchor in anchors]

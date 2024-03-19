@@ -20,8 +20,10 @@ hyperparameter_tuning:
   param_grid:
     model:
       alpha: [0]
-    # ma_clean:
-      # finalize_flag: [True, False]
+    ma_clean:
+      finalize_flag: [True, False]
+    final_ct:
+      numerical_encoder: ["passthrough", "standardscaler"]
   cv_no: 10
   random_seed: 2024
   n_jobs: -1

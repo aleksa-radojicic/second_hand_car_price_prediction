@@ -1,16 +1,18 @@
+import copy
 from dataclasses import dataclass
 from typing import Self
 
 from sklearn.compose import ColumnTransformer
 from sklearn.discriminant_analysis import StandardScaler
 from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (MinMaxScaler, OneHotEncoder, OrdinalEncoder,
                                    RobustScaler)
 
 from src import config
 from src.features.utils import CustomTransformer
 from src.utils import (COLUMNS_NAN_STRATEGY_MAP, Dataset, Metadata,
-                       PipelineMetadata, preprocess_init)
+                       preprocess_init)
 
 
 def prefix_ds_metadata_columns(
@@ -24,12 +26,28 @@ def prefix_ds_metadata_columns(
     return ds, columns
 
 
+class PreprocessorPipeline(Pipeline):
+    """Pipeline containing all transformers for preprocessing.
+
+    It only implements sklearn's clone method to deep copy the object.
+    The reason for this is when a regular sklearn's pipeline is cloned,
+    it will deep copy every individual transformer in the pipeline.
+    This is not a desirable behaviour because pipe_meta data will not
+    be connected similarly to a singly linked list. By implementing
+    mentioned clone method CustomTransformers will work in GridSearchCV 
+    and use Metadata along with X (regular data).
+    """
+
+    def __sklearn_clone__(self) -> Self:
+        return copy.deepcopy(self)
+
+
 class ColumnsDropper(CustomTransformer):
     """Drops columns scheduled for deletion from the data frame and updates
     other columns list."""
 
-    def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0):
-        super().__init__(pipe_meta, verbose)
+    def __init__(self):
+        super().__init__()
 
     @staticmethod
     @preprocess_init
@@ -74,8 +92,8 @@ class ColumnsMetadataPrefixer(CustomTransformer):
     ORD_COLS_PREFIX: str = "ordinal__"
     NOM_COLS_PREFIX: str = "nominal__"
 
-    def __init__(self, pipe_meta: PipelineMetadata, verbose: int = 0) -> None:
-        super().__init__(pipe_meta, verbose)
+    def __init__(self) -> None:
+        super().__init__()
 
     @staticmethod
     @preprocess_init
@@ -105,10 +123,8 @@ class CategoryTypesTransformer(CustomTransformer):
     n_jobs: int
     column_transformer: ColumnTransformer
 
-    def __init__(
-        self, pipe_meta: PipelineMetadata, verbose: int = 0, n_jobs: int = 1
-    ) -> None:
-        super().__init__(pipe_meta, verbose)
+    def __init__(self, n_jobs: int = 1):
+        super().__init__()
         self.n_jobs = n_jobs
 
     @preprocess_init
@@ -155,10 +171,8 @@ class MissingValuesHandler(CustomTransformer):
     n_jobs: int
     column_transformer: ColumnTransformer
 
-    def __init__(
-        self, pipe_meta: PipelineMetadata, verbose: int = 0, n_jobs: int = 1
-    ) -> None:
-        super().__init__(pipe_meta, verbose)
+    def __init__(self, n_jobs: int = 1):
+        super().__init__()
         self.n_jobs = n_jobs
 
     @preprocess_init
@@ -197,19 +211,16 @@ class FinalColumnTransformerConfig:
 
 
 class FinalColumnTransformer(CustomTransformer):
-    cfg: FinalColumnTransformerConfig
+    nominal_encoder: str
+    numerical_encoder: str
     n_jobs: int
+
     column_transformer: ColumnTransformer
 
-    def __init__(
-        self,
-        pipe_meta: PipelineMetadata,
-        verbose: int = 0,
-        cfg: FinalColumnTransformerConfig = FinalColumnTransformerConfig(),
-        n_jobs: int = 1,
-    ) -> None:
-        super().__init__(pipe_meta, verbose)
-        self.cfg = cfg
+    def __init__(self, nominal_encoder: str, numerical_encoder: str, n_jobs: int = 1):
+        super().__init__()
+        self.nominal_encoder = nominal_encoder
+        self.numerical_encoder = numerical_encoder
         self.n_jobs = n_jobs
 
     @preprocess_init
@@ -221,12 +232,12 @@ class FinalColumnTransformer(CustomTransformer):
             "standardscaler": StandardScaler(),
             "robustscaler": RobustScaler(),
             "minmaxscaler": MinMaxScaler(),
-        }[self.cfg.numerical_encoder]
+        }[self.numerical_encoder]
 
         nominal_encoder = {
             "onehot": OneHotEncoder(sparse_output=False),
             "ordinal": OrdinalEncoder(),
-        }[self.cfg.nominal_encoder]
+        }[self.nominal_encoder]
 
         column_transformer = ColumnTransformer(
             [

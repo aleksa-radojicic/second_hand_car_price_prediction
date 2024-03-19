@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from src.features.utils import CustomTransformer
-from src.utils import Dataset, Metadata, PipelineMetadata, preprocess_init
+from src.utils import Dataset, Metadata, preprocess_init
 
 
 @dataclass
@@ -16,13 +16,8 @@ CF_PREFIX: str = "cf_"
 class MACleaner(CustomTransformer):
     finalize_flag: bool
 
-    def __init__(
-        self,
-        pipe_meta: PipelineMetadata,
-        finalize_flag: bool = True,
-        verbose: int = 0,
-    ):
-        super().__init__(pipe_meta, verbose)
+    def __init__(self, finalize_flag: bool):
+        super().__init__()
         self.finalize_flag = finalize_flag
 
     @staticmethod

@@ -4,7 +4,7 @@ import json
 import os
 import pickle
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pandas as pd
 from sklearn.impute import SimpleImputer
@@ -14,8 +14,8 @@ from typeguard import check_type
 from src.config import FeaturesInfo
 from src.logger import logging
 
-ColsNanStrategy = Dict[str, List[str]]
-IdxToRemove = List[int]
+ColsNanStrategy = dict[str, list[str]]
+IdxToRemove = list[int]
 
 
 def init_features_info() -> FeaturesInfo:
@@ -46,7 +46,7 @@ def init_cols_nan_strategy() -> ColsNanStrategy:
     return columns_nan_strategy
 
 
-COLUMNS_NAN_STRATEGY_MAP: Dict[str, SimpleImputer] = {
+COLUMNS_NAN_STRATEGY_MAP: dict[str, SimpleImputer] = {
     "mean": SimpleImputer(strategy="mean"),
     "median": SimpleImputer(strategy="median"),
     "modus": SimpleImputer(strategy="most_frequent"),
@@ -170,7 +170,7 @@ def json_object(file_path, obj):
 
 def preprocess_init(func):
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Tuple[pd.DataFrame, FeaturesInfo]:
+    def wrapper(*args: Any, **kwargs: Any) -> tuple[pd.DataFrame, FeaturesInfo]:
         if "df" in kwargs and isinstance(kwargs["df"], pd.DataFrame):
             kwargs["df"] = kwargs["df"].copy()
 
@@ -195,7 +195,7 @@ def log_feature_info_dict(features_info: FeaturesInfo, title: str, verbose: int)
 
 def train_test_split_custom(
     df: Dataset, test_size: float, random_seed: int
-) -> Tuple[Dataset, Dataset]:
+) -> tuple[Dataset, Dataset]:
     df_train, df_test = train_test_split(
         df,
         test_size=test_size,
@@ -235,8 +235,8 @@ def get_y_set(df: Dataset, label_col: str) -> Dataset:
     return df[[label_col]]
 
 
-def add_prefix(prefix: str, **kwargs) -> Dict[str, Any]:
-    res_dict: Dict[str, Any] = {}
+def add_prefix(prefix: str, **kwargs) -> dict[str, Any]:
+    res_dict: dict[str, Any] = {}
     for k, v in kwargs.items():
         prefixed_k = f"{prefix}{k}"
         res_dict[prefixed_k] = v

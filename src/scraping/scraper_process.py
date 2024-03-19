@@ -3,7 +3,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from multiprocessing.sharedctypes import SynchronizedBase
-from typing import Any, Dict, List
+from typing import Any
 
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
@@ -25,10 +25,10 @@ BASE_URL_SP = (
 @dataclass
 class ScraperProcessConfig:
     socks_port: int
-    options: List[Dict[str, Any]]
+    options: list[dict[str, Any]]
 
     @staticmethod
-    def set_firefox_options(cfg_options: Dict[str, Any]) -> FirefoxOptions:
+    def set_firefox_options(cfg_options: dict[str, Any]) -> FirefoxOptions:
         options = FirefoxOptions()
         for prop_name, prop_val in cfg_options.items():
             options.set_preference(prop_name, prop_val)
@@ -106,7 +106,7 @@ class ScraperProcess(multiprocessing.Process):
         self.sp_no += self.sp_incrementer
 
     def run(self):
-        torcc: Dict[str, Any] = {
+        torcc: dict[str, Any] = {
             "ControlPort": str(self.cfg.socks_port + 1),
             "SOCKSPort": str(self.cfg.socks_port),
             "DataDirectory": tempfile.mkdtemp(),
@@ -119,8 +119,8 @@ class ScraperProcess(multiprocessing.Process):
             options: FirefoxOptions = ScraperProcessConfig.set_firefox_options(
                 *self.cfg.options
             )
-            tor_cfg: TorManagerConfig = TorManagerConfig(**self.tor_cfg) # type: ignore
-            
+            tor_cfg: TorManagerConfig = TorManagerConfig(**self.tor_cfg)  # type: ignore
+
             with TorManager(tor_cfg, options, torcc).manage() as tor_manager:
                 while not finished_flag:
                     url_sp = BASE_URL_SP(self.sp_no)

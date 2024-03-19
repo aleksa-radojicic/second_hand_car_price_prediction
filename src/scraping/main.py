@@ -3,7 +3,7 @@ import time
 from dataclasses import dataclass
 from multiprocessing.sharedctypes import SynchronizedBase
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 
 import hydra
 from hydra.core.config_store import ConfigStore
@@ -35,11 +35,11 @@ CONFIG_PATH: str = str(Path().absolute() / "config" / "scrape")
 
 @hydra.main(config_path=CONFIG_PATH, config_name="scrape", version_base="1.3.1")
 def main(cfg: ScrapeConfig):
-    scraper_processes_configs: List[ScraperProcessConfig] = cfg.scraper_processes
+    scraper_processes_configs: list[ScraperProcessConfig] = cfg.scraper_processes
     process_no: int = len(scraper_processes_configs)
 
     cars_scraped_total_no: SynchronizedBase[Any] = multiprocessing.Value("i", 0)
-    scraper_processes: List[ScraperProcess] = []
+    scraper_processes: list[ScraperProcess] = []
 
     for i, scraper_process_config in enumerate(scraper_processes_configs, start=1):
         start_search_page: int = cfg.sp_offset + i
