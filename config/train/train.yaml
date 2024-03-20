@@ -6,10 +6,10 @@ hydra:
   run:
     dir: ./logs/train/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
+data_filepath: "data/processed/"
 test_size: 0.2
 random_seed: 2024 # applied for all models
 label_col: "price"
-initial_build_verbose: 2
 
 models:
   - name: "my_ridge_high"

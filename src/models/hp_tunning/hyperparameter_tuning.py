@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.model_selection._search import BaseSearchCV
@@ -10,10 +10,11 @@ from src.logger import log_message
 from src.models.train.train_model import Metric, Model, deserialize_base_model
 from src.utils import Dataset
 
+
 @dataclass
 class HPTunerConfig:
     name: str
-    param_grid: Dict[str, Any] # NOTE: Not used in HyperparametersTuner class
+    param_grid: dict[str, Any]  # NOTE: Not used in HyperparametersTuner class
     cv_no: int
     random_seed: int
     n_jobs: int
@@ -25,14 +26,16 @@ class HPTunerConfig:
 class HyperparametersTuner:
     cfg: HPTunerConfig
     metric: Metric
-    
+
     tuner: BaseSearchCV
 
     def __init__(self, cfg: HPTunerConfig, metric: Metric):
         self.cfg = cfg
         self.metric = metric
 
-    def _create_tuner(self, estimator: Pipeline, param_grid: Dict[str, Any]) -> BaseSearchCV:
+    def _create_tuner(
+        self, estimator: Pipeline, param_grid: dict[str, Any]
+    ) -> BaseSearchCV:
         cv = KFold(self.cfg.cv_no, shuffle=True, random_state=self.cfg.random_seed)
 
         tuner: BaseSearchCV = GridSearchCV(
@@ -47,9 +50,11 @@ class HyperparametersTuner:
         )
         return tuner
 
-    def start(self, estimator: Pipeline, param_grid: Dict[str, Any], X: Dataset, y: Dataset) -> None:
+    def start(
+        self, estimator: Pipeline, param_grid: dict[str, Any], X: Dataset, y: Dataset
+    ):
         log_message(f"Tuning hyperparameters {self.cfg.name}...", self.cfg.verbose)
-        tuner: BaseSearchCV = self._create_tuner(estimator=estimator, param_grid=param_grid)
+        tuner = self._create_tuner(estimator=estimator, param_grid=param_grid)
         tuner.fit(X=X, y=y)
         log_message(
             f"Tuned hyperparameters {self.cfg.name} successfully.", self.cfg.verbose

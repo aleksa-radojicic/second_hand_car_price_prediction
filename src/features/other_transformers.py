@@ -34,7 +34,7 @@ class PreprocessorPipeline(Pipeline):
     it will deep copy every individual transformer in the pipeline.
     This is not a desirable behaviour because pipe_meta data will not
     be connected similarly to a singly linked list. By implementing
-    mentioned clone method CustomTransformers will work in GridSearchCV 
+    mentioned clone method CustomTransformers will work in GridSearchCV
     and use Metadata along with X (regular data).
     """
 

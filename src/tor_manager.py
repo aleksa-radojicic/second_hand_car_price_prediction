@@ -1,11 +1,10 @@
-import os
 import subprocess
 import tempfile
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from os.path import dirname, isfile, join
-from typing import Any, Dict, Literal
+from typing import Any, Literal
 
 import tbselenium.common as cm
 from selenium.common.exceptions import TimeoutException
@@ -66,10 +65,10 @@ class TorManager:
 
     cfg: TorManagerConfig
     options: FirefoxOptions
-    torcc: Dict[str, Any]
+    torcc: dict[str, Any]
 
     def __init__(
-        self, cfg: TorManagerConfig, options: FirefoxOptions, torcc: Dict[str, Any]
+        self, cfg: TorManagerConfig, options: FirefoxOptions, torcc: dict[str, Any]
     ):
         self.cfg = cfg
         self.options = options

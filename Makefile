@@ -25,9 +25,18 @@ requirements: test_environment
 	$(PYTHON_INTERPRETER) -m pip install -U pip setuptools wheel
 	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
 
-## Make Raw Dataset
+## Make Raw Data (Dataset + Metadata)
 raw_data: requirements
-	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw
+	$(PYTHON_INTERPRETER) src/data/make_raw_data.py $(output_filepath)
+
+## Make Processed Data From Raw (Dataset + Metadata)
+processed_data_from_raw: requirements
+	$(PYTHON_INTERPRETER) src/data/make_processed_data.py $(input_filepath) $(output_filepath)
+
+## Make Processed Data From Scratch (Dataset + Metadata)
+processed_data: requirements
+	$(PYTHON_INTERPRETER) src/data/make_raw_data.py $(raw_filepath)
+	$(PYTHON_INTERPRETER) src/data/make_processed_data.py $(raw_filepath) $(processed_filepath)
 
 ## Delete all compiled Python files
 clean:

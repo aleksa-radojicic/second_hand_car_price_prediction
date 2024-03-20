@@ -8,13 +8,12 @@ from omegaconf import open_dict
 from omegaconf.errors import ConfigKeyError
 from sklearn.pipeline import Pipeline
 
-from src.data.make_dataset import DatasetMaker
 from src.features.build_features import FeaturesBuilder
 from src.models.hp_tunning.hyperparameter_tuning import (HPTunerConfig,
                                                          HyperparametersTuner,
                                                          get_base_model)
 from src.models.train.train_model import Metric, Model
-from src.utils import (Dataset, add_prefix, get_X_set, get_y_set,
+from src.utils import (Dataset, add_prefix, get_X_set, get_y_set, load_data,
                        train_test_split_custom)
 
 # NOTE: Could be used as arguments in main and parsed
@@ -36,11 +35,10 @@ PREDICTOR_NAME: str = "predictor"
 
 @dataclass
 class HPConfig:
+    data_filepath: str
     test_size: float
     random_seed: int
     label_col: str
-    initial_build_verbose: int
-    features_builder_verbose: int
 
     model_type: str
     metric: str
@@ -68,7 +66,7 @@ def create_param_grid(
 ) -> dict[str, Any]:
     separator = "__"
 
-    # Premodel param grid (steps in pipeline before predictor)
+    # Preprocessor param grid
     premodel_param_grid: dict[str, Any] = {}
 
     for step_name in pipe_step_names:
@@ -105,16 +103,10 @@ def create_param_grid(
     version_base=HYDRA_VERSION_BASE,
 )
 def main(cfg: HPConfig):
-    df_raw, metadata_raw = DatasetMaker("data/raw").start()
-
-    features_builder: FeaturesBuilder = FeaturesBuilder()
-
-    df_interim, metadata_interim = features_builder.initial_build(
-        df=df_raw, metadata=metadata_raw, verbose=cfg.initial_build_verbose
-    )
+    df_processed, metadata_processed = load_data(cfg.data_filepath)
 
     df_train, _ = train_test_split_custom(
-        df=df_interim, test_size=cfg.test_size, random_seed=cfg.random_seed
+        df=df_processed, test_size=cfg.test_size, random_seed=cfg.random_seed
     )
     X_train: Dataset = get_X_set(df_train, label_col=cfg.label_col)
     y_train: Dataset = get_y_set(df_train, label_col=cfg.label_col)
@@ -122,8 +114,9 @@ def main(cfg: HPConfig):
     hp_tuning_cfg: HPTunerConfig = cfg.hyperparameter_tuning
     metric: Metric = Metric.from_name(cfg.metric)
 
+    features_builder: FeaturesBuilder = FeaturesBuilder()
     preprocess_pipe = features_builder.make_pipeline(
-        PIPELINE_STEP_NAMES, metadata_interim
+        PIPELINE_STEP_NAMES, metadata_processed
     )
     model: Model = get_base_model(model_type=cfg.model_type, model_dir=BASE_MODEL_PATH)
 

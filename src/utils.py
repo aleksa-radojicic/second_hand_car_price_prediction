@@ -204,26 +204,37 @@ def train_test_split_custom(
     return df_train, df_test
 
 
-def load_dataset(file_name: str, path: str) -> Dataset:
-    dataset = pd.read_pickle(f"{path}/{file_name}_df.pkl")
+def load_data(filepath: str) -> tuple[Dataset, Metadata]:
+    dataset = load_dataset(filepath)
+    metadata = load_metadata(filepath)
+    return dataset, metadata
+
+
+def load_dataset(filepath: str) -> Dataset:
+    dataset = pd.read_pickle(f"{filepath}dataset.pickle")
     return dataset
 
 
-def load_metadata(file_name: str, path: str) -> Metadata:
+def load_metadata(filepath: str) -> Metadata:
     metadata: Metadata
 
-    with open(file=f"{path}/{file_name}_metadata.json", mode="r") as file:
+    with open(file=f"{filepath}metadata.json", mode="r") as file:
         metadata_dict = json.load(file)
         metadata = Metadata(**metadata_dict)
     return metadata
 
 
-def save_dataset(file_name: str, path: str, dataset: Dataset) -> None:
-    dataset.to_pickle(path=f"{path}/{file_name}_df.pkl")
+def save_data(filepath: str, dataset: Dataset, metadata: Metadata):
+    save_dataset(filepath, dataset)
+    save_metadata(filepath, metadata)
 
 
-def save_metadata(file_name: str, path: str, metadata: Metadata) -> None:
-    with open(file=f"{path}/{file_name}_metadata.json", mode="w") as file:
+def save_dataset(filepath: str, dataset: Dataset) -> None:
+    dataset.to_pickle(f"{filepath}dataset.pickle")
+
+
+def save_metadata(filepath: str, metadata: Metadata) -> None:
+    with open(file=f"{filepath}metadata.json", mode="w") as file:
         json.dump(metadata, file, cls=MetadataEncoder, indent=4)
 
 

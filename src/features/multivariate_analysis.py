@@ -16,7 +16,7 @@ CF_PREFIX: str = "cf_"
 class MACleaner(CustomTransformer):
     finalize_flag: bool
 
-    def __init__(self, finalize_flag: bool):
+    def __init__(self, finalize_flag: bool = True):
         super().__init__()
         self.finalize_flag = finalize_flag
 

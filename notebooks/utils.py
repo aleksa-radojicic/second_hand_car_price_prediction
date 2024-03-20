@@ -2,7 +2,7 @@ import collections
 import copy
 import inspect
 import os
-from typing import Callable, Optional, Set, Tuple
+from typing import Callable, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,8 +15,7 @@ from scipy import stats
 from src import config
 from src.config import FeaturesInfo
 from src.features.utils import CustomTransformer
-from src.utils import (ColsNanStrategy, Dataset, Metadata, load_dataset,
-                       load_metadata, save_dataset, save_metadata)
+from src.utils import ColsNanStrategy, Dataset, Metadata, load_data, save_data
 
 CF_PREFIX = "cf_"
 NB_SUFFIX = "_nb"
@@ -104,20 +103,21 @@ def get_value_counts_freq_with_perc(df, column):
     return result
 
 
-def save_artifacts(
-    file_name: str,
-    path: str,
-    dataset: Dataset,
-    metadata: Metadata,
-):
-    save_dataset(file_name, path, dataset)
-    save_metadata(file_name, path, metadata)
+def save_artifacts(stage: int, dataset: Dataset, metadata: Metadata):
+    name = f"{STAGES_DICT[stage]['name']}_"
+    folderpath = STAGES_DICT[stage]["folder_path"]
+
+    filepath = os.path.join(folderpath, name)
+    save_data(filepath, dataset, metadata)
 
 
-def load_artifacts(file_name: str, path: str) -> Tuple[Dataset, Metadata]:
-    dataset = load_dataset(file_name, path)
-    metadata = load_metadata(file_name, path)
+def load_artifacts(stage: int) -> tuple[Dataset, Metadata]:
+    name = f"{STAGES_DICT[stage]['name']}_"
+    folderpath = STAGES_DICT[stage]["folder_path"]
 
+    filepath = os.path.join(folderpath, name)
+
+    dataset, metadata = load_data(filepath)
     return dataset, metadata
 
 
@@ -350,7 +350,7 @@ def test_cols_nan_strategy_with_features_info(
         cns_list.extend(cols_nan_strategy[strategy])
 
     # NOTE: not_in_fi_msg is not needed because ColumnsDropper will handle those cases
-    cols_not_in_cns: Set[str] = set(all_feats) - set(cns_list)
+    cols_not_in_cns: set[str] = set(all_feats) - set(cns_list)
     not_in_cns_msg = f"Columns not in cols_nan_strategy:\n{cols_not_in_cns}"
 
     assert cols_not_in_cns == set(), not_in_cns_msg
