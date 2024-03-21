@@ -96,7 +96,7 @@ class HPRunnerConfig:
 
 
 class HPRunner:
-    """Class responsible for loading processed data and further preparing it. After all it performs
+    """Responsible for loading processed data and further preparing it. Finally it performs
     tuning hyperparameters using sklearn's GridSearchCV.
 
     Attributes
@@ -106,6 +106,7 @@ class HPRunner:
     """
 
     cfg: HPRunnerConfig
+    hyperparameter_tuner_: HyperparametersTuner
 
     def __init__(self, cfg: HPRunnerConfig):
         self.cfg = cfg
@@ -148,7 +149,7 @@ class HPRunner:
         param_grid = {**preprocessor_param_grid, **model_param_grid}
         return param_grid
 
-    def start(self) -> HyperparametersTuner:
+    def start(self):
         cfg = self.cfg
         df_processed, metadata_processed = load_data(cfg.data_filepath)
 
@@ -184,4 +185,4 @@ class HPRunner:
         hyperparameter_tuner.start(
             estimator=pipeline, param_grid=param_grid, X=X_train, y=y_train
         )
-        return hyperparameter_tuner
+        self.hyperparameter_tuner_ = hyperparameter_tuner

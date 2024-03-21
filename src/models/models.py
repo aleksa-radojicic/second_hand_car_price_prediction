@@ -102,7 +102,7 @@ class Metric:
         return METRICS[type]
 
 
-def serialize_base_models(dir: str) -> None:
+def serialize_base_models(dir: str):
     _rf_classifier = RandomForestRegressor()
 
     base_models: dict[str, Any] = {

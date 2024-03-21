@@ -12,7 +12,7 @@ CONFIG_PATH: str = str(Path().absolute() / "config" / "hyperparameters_tuning")
 CONFIG_FILE_NAME: str = "hyperparameters_tuning"
 HYDRA_VERSION_BASE: str = "1.3.1"  # NOTE: Could be in config
 
-cs: ConfigStore = ConfigStore.instance()
+cs = ConfigStore.instance()
 cs.store(name="hp_tuning", node=HPRunnerConfig)
 
 
@@ -23,14 +23,15 @@ cs.store(name="hp_tuning", node=HPRunnerConfig)
 )
 def main(cfg: HPRunnerConfig):
     hp_runner = HPRunner(cfg)
-    hyperparameter_tuner = hp_runner.start()
+    hp_runner.start()
 
-    cv_results: dict[str, Any] = hyperparameter_tuner.tuner.cv_results_  # type: ignore
+    tuner = hp_runner.hyperparameter_tuner_.tuner
+    cv_results: dict[str, Any] = tuner.cv_results_  # type: ignore
     print(cv_results["mean_train_score"])
     print(cv_results["mean_test_score"])
 
-    print(hyperparameter_tuner.tuner.best_score_)  # type: ignore
-    print(hyperparameter_tuner.tuner.best_params_)  # type: ignore
+    print(tuner.best_score_)  # type: ignore
+    print(tuner.best_params_)  # type: ignore
 
 
 if __name__ == "__main__":

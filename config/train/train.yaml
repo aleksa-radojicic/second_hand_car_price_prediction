@@ -6,7 +6,8 @@ hydra:
   run:
     dir: ./logs/train/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
-data_filepath: "data/processed/"
+data_filepath: "data/processed/" # the / at the end is necessary
+base_model_filepath: "models/base"
 test_size: 0.2
 random_seed: 2024 # applied for all models
 label_col: "price"
@@ -27,6 +28,10 @@ models:
     hyperparameters:
       alpha: 0.5
 metric: "mae"
+
+pipeline_step_names: ["ua_clean", "ma_clean", "col_dropper", "cat_handler", "nan_handler", "final_ct"]
+preprocessor_name: "preprocessor"
+predictor_name: "predictor"
 
 features_builder:
   init_cleaner:
