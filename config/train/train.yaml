@@ -8,9 +8,6 @@ hydra:
 
 data_filepath: "data/processed/" # the / at the end is necessary
 base_model_filepath: "models/base"
-test_size: 0.2
-random_seed: 2024 # applied for all models
-label_col: "price"
 
 models:
   - name: "my_ridge_high"

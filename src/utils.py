@@ -7,12 +7,51 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pandas as pd
+import yaml
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from typeguard import check_type
 
-from src.config import FeaturesInfo
 from src.logger import logging
+
+
+@dataclass
+class GeneralConfig:
+    label_col: str
+    index_col: str
+    dtype_backend: str
+    test_size: float
+    random_seed: int
+
+
+FeaturesInfo = dict[str, list[str]]
+"""Custom type alias representing a dictionary containing information about feature categories.
+
+Structure
+---------
+{
+    'numerical': list[str]
+        List of column names for numerical features.
+    'binary': list[str]
+        List of column names for binary features.
+    'ordinal': list[str]
+        List of column names for ordinal features.
+    'nominal': list[str]
+        List of column names for nominal features.
+    'derived_numerical': list[str]
+        List of column names for derived numerical features.
+    'derived_binary': list[str]
+        List of column names for derived binary features.
+    'derived_ordinal': list[str]
+        List of column names for derived ordinal features.
+    'derived_nominal': list[str]
+        List of column names for derived nominal features.
+    'other': list[str]
+        List of other features.
+    'features_to_delete': list[str]
+        List of column names for features to be deleted.
+}
+"""
 
 ColsNanStrategy = dict[str, list[str]]
 IdxToRemove = list[int]
@@ -222,6 +261,18 @@ def load_metadata(filepath: str) -> Metadata:
         metadata_dict = json.load(file)
         metadata = Metadata(**metadata_dict)
     return metadata
+
+
+def load_yaml(filepath: str) -> Any:
+    with open(filepath, "r") as file:
+        content = yaml.safe_load(file)
+        return content
+
+
+def load_general_cfg() -> GeneralConfig:
+    filepath = os.path.join(os.getcwd(), "config", "general.yaml")
+    general_cfg: GeneralConfig = GeneralConfig(**load_yaml(filepath))
+    return general_cfg
 
 
 def save_data(filepath: str, dataset: Dataset, metadata: Metadata):

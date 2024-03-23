@@ -1,0 +1,5 @@
+label_col: "price"
+index_col: "id"
+dtype_backend: "numpy_nullable"
+test_size: 0.2
+random_seed: 2024

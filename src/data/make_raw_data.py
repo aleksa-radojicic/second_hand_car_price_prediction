@@ -2,11 +2,9 @@
 import click
 import pandas as pd
 
-from src import config
 from src.db.broker import DbBroker
 from src.logger import logging
-from src.utils import Dataset, Metadata, save_data
-
+from src.utils import Dataset, Metadata, save_data, load_general_cfg
 
 class RawDataMaker:
     """Class responsible for creation of raw dataset by loading from SQL table and
@@ -46,12 +44,14 @@ def main(output_filepath: str):
 
 
 def get_dataset_from_db() -> Dataset:
+    general_cfg = load_general_cfg()
+    
     db_broker = DbBroker()
     df = pd.read_sql(
         db_broker.get_all_listings_statement(),
         db_broker.engine,
-        dtype_backend=config.DTYPE_BACKEND,
-        index_col=config.INDEX,
+        dtype_backend=general_cfg.dtype_backend, # type: ignore
+        index_col=general_cfg.index_col,
     )
     df = df.rename(str, axis="columns")
     db_broker.engine.dispose()

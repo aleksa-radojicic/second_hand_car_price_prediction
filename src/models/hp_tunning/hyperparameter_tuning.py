@@ -11,7 +11,8 @@ from sklearn.pipeline import Pipeline
 from src.features.build_features import FeaturesBuilder
 from src.logger import log_message
 from src.models.train.train_model import Metric, Model, deserialize_base_model
-from src.utils import (Dataset, add_prefix, get_X_set, get_y_set, load_data,
+from src.utils import (Dataset, GeneralConfig, add_prefix, get_X_set,
+                       get_y_set, load_data, load_general_cfg,
                        train_test_split_custom)
 
 
@@ -81,10 +82,6 @@ class HPRunnerConfig:
     data_filepath: str
     base_model_filepath: str
 
-    test_size: float
-    random_seed: int
-    label_col: str
-
     model_type: str
     metric: str
 
@@ -106,10 +103,12 @@ class HPRunner:
     """
 
     cfg: HPRunnerConfig
+    general_cfg: GeneralConfig
     hyperparameter_tuner_: HyperparametersTuner
 
     def __init__(self, cfg: HPRunnerConfig):
         self.cfg = cfg
+        self.general_cfg = load_general_cfg()
 
     def create_param_grid(self) -> dict[str, Any]:
         """Create parameter grid for hyperparameter tuner such
@@ -151,13 +150,17 @@ class HPRunner:
 
     def start(self):
         cfg = self.cfg
+        general_cfg = self.general_cfg
+
         df_processed, metadata_processed = load_data(cfg.data_filepath)
 
         df_train, _ = train_test_split_custom(
-            df=df_processed, test_size=cfg.test_size, random_seed=cfg.random_seed
+            df=df_processed,
+            test_size=general_cfg.test_size,
+            random_seed=general_cfg.random_seed,
         )
-        X_train = get_X_set(df_train, label_col=cfg.label_col)
-        y_train = get_y_set(df_train, label_col=cfg.label_col)
+        X_train = get_X_set(df_train, label_col=general_cfg.label_col)
+        y_train = get_y_set(df_train, label_col=general_cfg.label_col)
 
         hp_tuning_cfg = cfg.hyperparameter_tuning
         metric = Metric.from_name(cfg.metric)

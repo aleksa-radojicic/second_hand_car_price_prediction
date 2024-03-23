@@ -10,8 +10,8 @@ from src.features.build_features import FeaturesBuilder, FeaturesBuilderConfig
 from src.logger import logging
 from src.models.models import (BaseModelConfig, Metric, Model,
                                deserialize_base_model, set_random_seed)
-from src.utils import (Dataset, get_X_set, get_y_set, load_data,
-                       train_test_split_custom)
+from src.utils import (Dataset, GeneralConfig, get_X_set, get_y_set, load_data,
+                       load_general_cfg, train_test_split_custom)
 
 
 def _get_model(estimator) -> Model:
@@ -124,9 +124,6 @@ class ModelsTrainerEvaluator:
 class TrainRunnerConfig:
     data_filepath: str
     base_model_filepath: str
-    test_size: float
-    random_seed: int
-    label_col: str
 
     models: list[BaseModelConfig]
     metric: str  # NOTE: Hydra DictConfig doesn't support Literal type hint
@@ -143,25 +140,30 @@ class TrainRunner:
     provided list of models and evaluates them using the provided metric."""
 
     cfg: TrainRunnerConfig
+    general_cfg: GeneralConfig
     scores_: dict[str, float]
 
     def __init__(self, cfg: TrainRunnerConfig):
         self.cfg = cfg
+        self.general_cfg = load_general_cfg()
 
     def start(self):
         cfg = self.cfg
+        general_cfg = self.general_cfg
 
         df_processed, metadata_processed = load_data(filepath=cfg.data_filepath)
 
         df_train, df_test = train_test_split_custom(
-            df=df_processed, test_size=cfg.test_size, random_seed=cfg.random_seed
+            df=df_processed,
+            test_size=general_cfg.test_size,
+            random_seed=general_cfg.random_seed,
         )
 
-        X_train: Dataset = get_X_set(df_train, label_col=cfg.label_col)
-        y_train: Dataset = get_y_set(df_train, label_col=cfg.label_col)
+        X_train: Dataset = get_X_set(df_train, label_col=general_cfg.label_col)
+        y_train: Dataset = get_y_set(df_train, label_col=general_cfg.label_col)
 
-        X_test: Dataset = get_X_set(df_test, label_col=cfg.label_col)
-        y_test: Dataset = get_y_set(df_test, label_col=cfg.label_col)
+        X_test: Dataset = get_X_set(df_test, label_col=general_cfg.label_col)
+        y_test: Dataset = get_y_set(df_test, label_col=general_cfg.label_col)
 
         features_builder = FeaturesBuilder(cfg.features_builder)
         preprocess_pipe = features_builder.make_pipeline(
@@ -171,7 +173,9 @@ class TrainRunner:
         )
 
         model_configs = cfg.models
-        set_random_seed(model_configs=model_configs, random_seed=cfg.random_seed)
+        set_random_seed(
+            model_configs=model_configs, random_seed=general_cfg.random_seed
+        )
         metric = Metric.from_name(cfg.metric)
         models = setup_models(
             model_configs=model_configs, model_dir=self.cfg.base_model_filepath
