@@ -2,7 +2,9 @@ import collections
 import copy
 import inspect
 import os
-from typing import Callable, Optional
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable, Literal, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,18 +14,26 @@ from IPython.core.display import Markdown
 from IPython.core.display_functions import display
 from scipy import stats
 
-from src import config
-from src.config import FeaturesInfo
 from src.features.utils import CustomTransformer
-from src.utils import ColsNanStrategy, Dataset, Metadata, load_data, save_data
+from src.utils import (ColsNanStrategy, Dataset, FeaturesInfo, Metadata,
+                       load_data, load_yaml, save_data)
+
+
+@dataclass
+class NotebookConfig:
+    dtype_backend: Literal["pyarrow", "numpy", "numpy_nullable"]
+    index_col: str
+    label_col: str
+    test_size: float
+    random_seed: int
+
 
 CF_PREFIX = "cf_"
-NB_SUFFIX = "_nb"
 
 STAGES_DICT = [
-    {"name": "1_IC", "folder_path": f"{os.getcwd()}/artifacts"},
-    {"name": "2_UA", "folder_path": f"{os.getcwd()}/artifacts"},
-    {"name": "3_MA", "folder_path": f"{os.getcwd()}/artifacts"},
+    {"name": "1_IC", "folder_path": os.path.join(os.getcwd(), "artifacts")},
+    {"name": "2_UA", "folder_path": os.path.join(os.getcwd(), "artifacts")},
+    {"name": "3_MA", "folder_path": os.path.join(os.getcwd(), "artifacts")},
 ]
 
 
@@ -51,8 +61,8 @@ def describe(df: pd.DataFrame) -> pd.DataFrame:
     """Expands pd.DataFrame.describe by showing missing rows by column and its percentage."""
 
     pandas_df_describe = df.describe()
-    describe_expanded = pd.concat([pandas_df_describe, get_nas(df).T])
-    return describe_expanded
+    describe_result = pd.concat([pandas_df_describe, get_nas(df).T])
+    return describe_result
 
 
 def display_feature_name_heading(feature):
@@ -187,14 +197,16 @@ def test_features_info_duplicates(features_info: FeaturesInfo):
         )
 
 
-def test_features_info_with_columns(df: Dataset, features_info: FeaturesInfo):
+def test_features_info_with_columns(
+    df: Dataset, features_info: FeaturesInfo, label_col: str
+):
     all_feats = []
     for key in features_info:
         if key == "features_to_delete":
             continue
         all_feats.extend(features_info[key])
 
-    all_cols = df.drop(config.LABEL, axis=1).columns.tolist()
+    all_cols = df.drop(label_col, axis=1).columns.tolist()
 
     not_in_right_msg = f"Features not in right:\n{set(all_feats) - set(all_cols)}"
     not_in_left_msg = f"Features not in left:\n{set(all_cols) - set(all_feats)}"
@@ -220,8 +232,11 @@ def test_cols_nan_strategy_duplicates(cols_nan_strategy: ColsNanStrategy):
 
 
 class TestNotebookGeneric:
-    def __init__(self, transformer_obj: CustomTransformer):
+    label_col: str
+
+    def __init__(self, transformer_obj: CustomTransformer, label_col: str):
         self.__transformer_obj = copy.deepcopy(transformer_obj)
+        self.label_col = label_col
 
     # @pytest.fixture
     def df(self) -> Dataset:
@@ -304,8 +319,12 @@ class TestNotebookGeneric:
         test_features_info_duplicates(metadata_nb.features_info)
 
         # Test features info with columns
-        test_features_info_with_columns(df_py, metadata_py.features_info)
-        test_features_info_with_columns(df_nb, metadata_nb.features_info)
+        test_features_info_with_columns(
+            df_py, metadata_py.features_info, self.label_col
+        )
+        test_features_info_with_columns(
+            df_nb, metadata_nb.features_info, self.label_col
+        )
 
         # Test columns nan strategy for duplicates
         test_cols_nan_strategy_duplicates(metadata_py.cols_nan_strategy)
@@ -354,3 +373,10 @@ def test_cols_nan_strategy_with_features_info(
     not_in_cns_msg = f"Columns not in cols_nan_strategy:\n{cols_not_in_cns}"
 
     assert cols_not_in_cns == set(), not_in_cns_msg
+
+
+def load_notebook_cfg() -> NotebookConfig:
+    PROJECT_DIR = Path().absolute().parent
+    CONFIG_FILEPATH = PROJECT_DIR / "config" / "notebooks" / "notebook.yaml"
+    cfg: NotebookConfig = NotebookConfig(**load_yaml(str(CONFIG_FILEPATH)))
+    return cfg
