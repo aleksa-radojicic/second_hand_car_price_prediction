@@ -1,6 +1,5 @@
 import multiprocessing
 import re
-import tempfile
 from dataclasses import dataclass
 from multiprocessing.sharedctypes import SynchronizedBase
 
@@ -13,7 +12,7 @@ from src.exception import (IPAddressBlockedException, LabelNotGivenException,
                            ScrapingException)
 from src.logger import log_by_severity, log_detailed_error, logging
 from src.scraping.web_scraper import Scraper, get_listing_urls
-from src.tor_manager import TorManager, TorManagerConfig
+from src.tor import Tor
 
 FirefoxOptions = Options
 
@@ -33,8 +32,7 @@ class ScraperProcessConfig:
 
 class ScraperProcess(multiprocessing.Process):
     name: str
-    cfg: ScraperProcessConfig
-    tor_cfg: TorManagerConfig
+    tor: Tor
     index_page_url: str
     sp_no: int
     sp_incrementer: int
@@ -43,8 +41,7 @@ class ScraperProcess(multiprocessing.Process):
     def __init__(
         self,
         name: str,
-        cfg: ScraperProcessConfig,
-        tor_cfg: TorManagerConfig,
+        tor: Tor,
         index_page_url: str,
         sp_no: int,
         sp_incrementer: int,
@@ -52,8 +49,7 @@ class ScraperProcess(multiprocessing.Process):
     ):
         super(ScraperProcess, self).__init__()
         self.name = name
-        self.cfg = cfg
-        self.tor_cfg = tor_cfg
+        self.tor = tor
         self.index_page_url = index_page_url
         self.sp_no = sp_no
         self.sp_incrementer = sp_incrementer
@@ -113,19 +109,11 @@ class ScraperProcess(multiprocessing.Process):
         self.sp_no += self.sp_incrementer
 
     def run(self):
-        torcc = {
-            "ControlPort": str(self.cfg.socks_port + 1),
-            "SOCKSPort": str(self.cfg.socks_port),
-            "DataDirectory": tempfile.mkdtemp(),
-        }
         finished_flag = False
         logging.info(f"Process {self.name} has started.")
         try:
             DbBroker()  # Mainly for checking connection with the db
-            options = ScraperProcessConfig.set_firefox_options(*self.cfg.options)
-            tor_cfg = TorManagerConfig(**self.tor_cfg)  # type: ignore
-
-            with TorManager(tor_cfg, options, torcc).manage() as tor_manager:
+            with self.tor.manage() as tor_manager:
                 while not finished_flag:
                     exception_msg_sp = lambda e: f"{str(e)} for sp {self.url_sp}"
                     try:

@@ -22,7 +22,7 @@ from src.scraping.web_scraper import create_soup
 
 
 @dataclass
-class TorManagerConfig:
+class TorConfig:
     tbb_path: str
     circuit_wait_time: int
     url_listing_load_timeout: int
@@ -58,17 +58,17 @@ def launch_tbb_tor_with_stem_expanded(
     return launch_tor_with_config(config=torrc, tor_cmd=tor_binary, timeout=timeout)
 
 
-class TorManager:
+class Tor:
     tor_process: subprocess.Popen
     driver: TorBrowserDriver
     controller: Controller
 
-    cfg: TorManagerConfig
+    cfg: TorConfig
     options: FirefoxOptions
     torcc: dict[str, Any]
 
     def __init__(
-        self, cfg: TorManagerConfig, options: FirefoxOptions, torcc: dict[str, Any]
+        self, cfg: TorConfig, options: FirefoxOptions, torcc: dict[str, Any]
     ):
         self.cfg = cfg
         self.options = options
@@ -89,8 +89,7 @@ class TorManager:
                 headless=self.cfg.headless_mode,
                 options=self.options,
             ) as self.driver:
-                # !:  port TorManagerConfig.TOR_CONTROL_PORT is wrong and should be retreived from torcc
-                with Controller.from_port(port=9251) as self.controller:  # type: ignore
+                with Controller.from_port(port=int(self.torcc["ControlPort"])) as self.controller:  # type: ignore
                     self.controller.authenticate()
                     logging.info(f"Tor is running with PID={self.controller.get_pid()}")
                     yield self

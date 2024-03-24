@@ -1,4 +1,5 @@
 import multiprocessing
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,7 +9,7 @@ from hydra.core.config_store import ConfigStore
 
 from src.logger import logging
 from src.scraping.scraper_process import ScraperProcess, ScraperProcessConfig
-from src.tor_manager import TorManagerConfig
+from src.tor import Tor, TorConfig
 
 
 def print_total_cars_scraped(
@@ -25,7 +26,7 @@ class ScrapeConfig:
     index_page_url: str
     sp_offset: int
     scraper_processes: list[ScraperProcessConfig]
-    tor: TorManagerConfig
+    tor: TorConfig
 
 
 cs = ConfigStore.instance()
@@ -49,10 +50,10 @@ def main(cfg: ScrapeConfig):
 
     for i, scraper_process_cfg in enumerate(cfg.scraper_processes, start=1):
         start_search_page = cfg.sp_offset + i
+        tor = create_tor(scraper_process_cfg, cfg.tor)
         scraper_process = ScraperProcess(
             name=f"Process_{i}",
-            cfg=scraper_process_cfg,
-            tor_cfg=cfg.tor,
+            tor=tor,
             index_page_url=cfg.index_page_url,
             sp_no=start_search_page,
             sp_incrementer=process_no,
@@ -63,6 +64,17 @@ def main(cfg: ScrapeConfig):
 
     print_total_cars_scraped(all_scraper_processes, cars_scraped_total_no)
     logging.info("Main process has finished.")
+
+
+def create_tor(scraper_process_cfg: ScraperProcessConfig, tor_cfg: TorConfig) -> Tor:
+    torcc = {
+        "ControlPort": str(scraper_process_cfg.socks_port + 1),
+        "SOCKSPort": str(scraper_process_cfg.socks_port),
+        "DataDirectory": tempfile.mkdtemp(),
+    }
+    options = ScraperProcessConfig.set_firefox_options(*scraper_process_cfg.options)
+    tor = Tor(tor_cfg, options, torcc)
+    return tor
 
 
 if __name__ == "__main__":
