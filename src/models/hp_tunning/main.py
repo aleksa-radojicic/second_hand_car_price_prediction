@@ -8,9 +8,9 @@ from src.models.hp_tunning.hyperparameter_tuning import (HPRunner,
                                                          HPRunnerConfig)
 
 # NOTE: Could be used as arguments in main and parsed
-CONFIG_PATH: str = str(Path().absolute() / "config" / "hyperparameters_tuning")
-CONFIG_FILE_NAME: str = "hyperparameters_tuning"
-HYDRA_VERSION_BASE: str = "1.3.1"  # NOTE: Could be in config
+CONFIG_PATH = str(Path().absolute() / "config" / "hyperparameters_tuning")
+CONFIG_FILE_NAME = "hyperparameters_tuning"
+HYDRA_VERSION_BASE = "1.3.1"
 
 cs = ConfigStore.instance()
 cs.store(name="hp_tuning", node=HPRunnerConfig)

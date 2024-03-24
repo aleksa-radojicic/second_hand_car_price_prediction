@@ -1,7 +1,8 @@
+from typing import Any
+
 from bs4 import BeautifulSoup
 from tbselenium.tbdriver import TorBrowserDriver
 
-from src.config import INDEX_PAGE_URL
 from src.domain.domain import (AdditionalInformation, GeneralInformation,
                                Listing)
 from src.exception import LabelNotGivenException, ScrapingException
@@ -9,9 +10,14 @@ from src.logger import log_detailed_error
 
 
 class Scraper:
-    def __init__(self, driver: TorBrowserDriver):
+    soup: BeautifulSoup
+    url: str
+    index_page_url: str
+
+    def __init__(self, driver: TorBrowserDriver, index_page_url: str):
         self.soup = create_soup(driver.page_source)
         self.url = driver.current_url
+        self.index_page_url = index_page_url
 
     def scrape_listing(self) -> Listing:
         try:
@@ -25,20 +31,20 @@ class Scraper:
             )
 
             listing.name = self.soup.find(class_="table js-tutorial-all").find("h1").contents[0].get_text(strip=True)  # type: ignore
-            listing.short_url = f"{INDEX_PAGE_URL}/auto-oglasi/{listing.id}/{listing.name}"  # type: ignore
+            listing.short_url = f"{self.index_page_url}/auto-oglasi/{listing.id}/{listing.name}"  # type: ignore
             listing.price = self.soup.find("span", "priceClassified").get_text(strip=True)  # type: ignore
 
             if listing.price == "Po dogovoru":
                 raise LabelNotGivenException("Price is not set")
 
             listing.listing_followers_no = self.soup.find("span", "classified-liked").get_text(strip=True)  # type: ignore
-            listing.location = self._scrape_location()
+            listing.location = self._scrape_location()  # type: ignore
             listing.images_no = self.soup.find("div", class_="image-counter").get_text(strip=True).split("/")[1]  # type: ignore
 
-            listing.safety = self._scrape_value_information("safety")
-            listing.equipment = self._scrape_value_information("equipment")
-            listing.other = self._scrape_value_information("other")
-            listing.description = self._scrape_description()
+            listing.safety = self._scrape_value_information("safety")  # type: ignore
+            listing.equipment = self._scrape_value_information("equipment")  # type: ignore
+            listing.other = self._scrape_value_information("other")  # type: ignore
+            listing.description = self._scrape_description()  # type: ignore
 
             return listing
         except LabelNotGivenException as e:
@@ -52,7 +58,7 @@ class Scraper:
 
         h2s = self.soup.find_all("h2", class_="classified-title")
 
-        main_h2 = next(
+        main_h2: Any = next(
             (
                 h2
                 for h2 in h2s
@@ -97,8 +103,8 @@ class Scraper:
         else:
             location = (
                 self.soup.find("div", class_="js-tutorial-contact")
-                .findChild("div", class_="uk-width-1-2")
-                .get_text(strip=True)
+                .findChild("div", class_="uk-width-1-2")  # type: ignore
+                .get_text(strip=True)  # type: ignore
             )
         return location
 
@@ -117,7 +123,7 @@ class Scraper:
         property_values_str = ""
 
         try:
-            main_h2 = next(
+            main_h2: Any = next(
                 (h2 for h2 in h2s if h2.get_text(strip=True) == section_name_srb),
                 None,
             )
@@ -143,11 +149,11 @@ class Scraper:
         try:
             description_elements = self.soup.find(
                 "div", class_="description-wrapper"
-            ).contents
+            ).contents  # type: ignore
             description_texts = [
                 el.get_text(strip=True, separator="")
                 for el in description_elements
-                if el.name != "br"
+                if el.name != "br"  # type: ignore
             ]
             description = "\n".join(description_texts)
         except Exception as e:
@@ -159,8 +165,8 @@ def create_soup(page_source: str):
     return BeautifulSoup(page_source, "lxml")
 
 
-def get_listing_urls_from_page(driver: TorBrowserDriver) -> list[str]:
+def get_listing_urls(driver: TorBrowserDriver, index_page_url: str) -> list[str]:
     soup = create_soup(driver.page_source)
     anchors = soup.find_all("a", class_="ga-title")
-    listing_urls = [f"{INDEX_PAGE_URL}{anchor.get('href')}" for anchor in anchors]
+    listing_urls = [f"{index_page_url}{anchor.get('href')}" for anchor in anchors]
     return listing_urls

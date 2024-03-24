@@ -6,8 +6,6 @@ import pandas as pd
 from src.features.utils import CustomTransformer
 from src.utils import Dataset, Metadata, preprocess_init
 
-CF_PREFIX = "cf_"
-
 
 @dataclass
 class UACleanerConfig:

@@ -12,7 +12,6 @@ CF_PREFIX: str = "cf_"
 
 @dataclass
 class InitialCleanerConfig:
-    # NOTE: Only use for config and not in InitialCleaner class
     oldtimers_flag: bool = True
     high_seats_cars_flag: bool = True
     low_kilometerage_cars_flag: bool = True

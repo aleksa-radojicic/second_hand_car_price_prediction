@@ -6,11 +6,7 @@ from src.utils import Dataset, Metadata, preprocess_init
 
 @dataclass
 class MACleanerConfig:
-    # NOTE: Only use for config and not in MACleaner class
     finalize_flag: bool = True
-
-
-CF_PREFIX: str = "cf_"
 
 
 class MACleaner(CustomTransformer):

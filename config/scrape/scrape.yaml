@@ -6,6 +6,7 @@ hydra:
   run:
     dir: ./logs/scraper/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
+index_page_url: "https://www.polovniautomobili.com"
 sp_offset: 1800
 
 scraper_processes:

@@ -5,9 +5,9 @@ from hydra.core.config_store import ConfigStore
 
 from src.models.train.train_model import TrainRunner, TrainRunnerConfig
 
-CONFIG_PATH: str = str(Path().absolute() / "config" / "train")
-CONFIG_FILE_NAME: str = "train"
-HYDRA_VERSION_BASE: str = "1.3.1"  # NOTE: Could be in config
+CONFIG_PATH = str(Path().absolute() / "config" / "train")
+CONFIG_FILE_NAME = "train"
+HYDRA_VERSION_BASE = "1.3.1"
 
 
 cs = ConfigStore.instance()

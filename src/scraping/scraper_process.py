@@ -3,32 +3,28 @@ import re
 import tempfile
 from dataclasses import dataclass
 from multiprocessing.sharedctypes import SynchronizedBase
-from typing import Any
 
 from selenium.common.exceptions import WebDriverException
-from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from selenium.webdriver.firefox.options import Options
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
-from src.config import INDEX_PAGE_URL
 from src.db.broker import DbBroker
 from src.exception import (IPAddressBlockedException, LabelNotGivenException,
                            ScrapingException)
 from src.logger import log_by_severity, log_detailed_error, logging
-from src.scraping.web_scraper import Scraper, get_listing_urls_from_page
+from src.scraping.web_scraper import Scraper, get_listing_urls
 from src.tor_manager import TorManager, TorManagerConfig
 
-BASE_URL_SP = (
-    lambda x: f"{INDEX_PAGE_URL}/auto-oglasi/pretraga?page={x}sort=basic&city_distance=0&showOldNew=all"
-)
+FirefoxOptions = Options
 
 
 @dataclass
 class ScraperProcessConfig:
     socks_port: int
-    options: list[dict[str, Any]]
+    options: list[dict[str, str]]
 
     @staticmethod
-    def set_firefox_options(cfg_options: dict[str, Any]) -> FirefoxOptions:
+    def set_firefox_options(cfg_options: dict[str, str]) -> FirefoxOptions:
         options = FirefoxOptions()
         for prop_name, prop_val in cfg_options.items():
             options.set_preference(prop_name, prop_val)
@@ -39,6 +35,7 @@ class ScraperProcess(multiprocessing.Process):
     name: str
     cfg: ScraperProcessConfig
     tor_cfg: TorManagerConfig
+    index_page_url: str
     sp_no: int
     sp_incrementer: int
     cars_scraped_total_no: SynchronizedBase
@@ -48,6 +45,7 @@ class ScraperProcess(multiprocessing.Process):
         name: str,
         cfg: ScraperProcessConfig,
         tor_cfg: TorManagerConfig,
+        index_page_url: str,
         sp_no: int,
         sp_incrementer: int,
         cars_scraped_total_no: SynchronizedBase,
@@ -56,10 +54,15 @@ class ScraperProcess(multiprocessing.Process):
         self.name = name
         self.cfg = cfg
         self.tor_cfg = tor_cfg
+        self.index_page_url = index_page_url
         self.sp_no = sp_no
         self.sp_incrementer = sp_incrementer
         self.cars_scraped_total_no = cars_scraped_total_no
         self.cars_scraped_per_sp_no = 0
+
+    @property
+    def url_sp(self) -> str:
+        return f"{self.index_page_url}/auto-oglasi/pretraga?page={self.sp_no}sort=basic&city_distance=0&showOldNew=all"
 
     def _handle_integrity_error(self, e: IntegrityError, error_msg):
         error_message = str(e.orig)
@@ -70,11 +73,13 @@ class ScraperProcess(multiprocessing.Process):
         else:
             logging.warning(error_msg)
 
-    def scrape_and_save_listing(self, url_listing, tor_manager, exception_msg_sp):
+    def scrape_and_save_listing(
+        self, url_listing, tor_manager, index_page_url, exception_msg_sp
+    ) -> None | str:
         exception_msg_listing = lambda e: f"{str(e)} for listing {url_listing}"
         try:
             tor_manager.load_url(url_listing, type="listing")
-            listing = Scraper(tor_manager.driver).scrape_listing()
+            listing = Scraper(tor_manager.driver, index_page_url).scrape_listing()
             DbBroker().save_listing(listing)
             self.cars_scraped_per_sp_no += 1
             with self.cars_scraped_total_no.get_lock():
@@ -93,12 +98,14 @@ class ScraperProcess(multiprocessing.Process):
             log_detailed_error(e, exception_msg_sp(e))
             return "break"
 
-    def _scrape_and_save_listings_from_sp(self, tor_manager, exception_msg_sp):
+    def _scrape_and_save_listings_from_sp(
+        self, tor_manager, index_page_url: str, exception_msg_sp
+    ):
         self.cars_scraped_per_sp_no = 0
 
-        for url_listing in get_listing_urls_from_page(tor_manager.driver):
+        for url_listing in get_listing_urls(tor_manager.driver, index_page_url):
             signal = self.scrape_and_save_listing(
-                url_listing, tor_manager, exception_msg_sp
+                url_listing, tor_manager, index_page_url, exception_msg_sp
             )
             if signal:
                 break
@@ -106,33 +113,29 @@ class ScraperProcess(multiprocessing.Process):
         self.sp_no += self.sp_incrementer
 
     def run(self):
-        torcc: dict[str, Any] = {
+        torcc = {
             "ControlPort": str(self.cfg.socks_port + 1),
             "SOCKSPort": str(self.cfg.socks_port),
             "DataDirectory": tempfile.mkdtemp(),
         }
         finished_flag = False
-        url_sp = ""
         logging.info(f"Process {self.name} has started.")
         try:
             DbBroker()  # Mainly for checking connection with the db
-            options: FirefoxOptions = ScraperProcessConfig.set_firefox_options(
-                *self.cfg.options
-            )
-            tor_cfg: TorManagerConfig = TorManagerConfig(**self.tor_cfg)  # type: ignore
+            options = ScraperProcessConfig.set_firefox_options(*self.cfg.options)
+            tor_cfg = TorManagerConfig(**self.tor_cfg)  # type: ignore
 
             with TorManager(tor_cfg, options, torcc).manage() as tor_manager:
                 while not finished_flag:
-                    url_sp = BASE_URL_SP(self.sp_no)
-                    exception_msg_sp = lambda e: f"{str(e)} for sp {url_sp}"
+                    exception_msg_sp = lambda e: f"{str(e)} for sp {self.url_sp}"
                     try:
-                        tor_manager.load_url(url_sp, type="sp")
+                        tor_manager.load_url(self.url_sp, type="sp")
                         logging.info("Loaded sp successfully.")
 
                         self._scrape_and_save_listings_from_sp(
-                            tor_manager, exception_msg_sp
+                            tor_manager, self.index_page_url, exception_msg_sp
                         )
-                        logging.info(f"Scraping from sp {url_sp} completed.")
+                        logging.info(f"Scraping from sp {self.url_sp} completed.")
                         logging.info(
                             f"Cars on sp scraped: {self.cars_scraped_per_sp_no}."
                         )

@@ -2,6 +2,7 @@ import copy
 from dataclasses import dataclass
 from typing import Self
 
+import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.discriminant_analysis import StandardScaler
 from sklearn.impute import SimpleImputer
@@ -9,10 +10,14 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (MinMaxScaler, OneHotEncoder, OrdinalEncoder,
                                    RobustScaler)
 
-from src import config
 from src.features.utils import CustomTransformer
 from src.utils import (COLUMNS_NAN_STRATEGY_MAP, Dataset, Metadata,
                        preprocess_init)
+
+# Can be in config
+UNKNOWN_VALUE_BINARY = -1
+UNKNOWN_VALUE_ORDINAL = np.nan
+UNKNOWN_VALUE_NOMINAL = np.nan
 
 
 def prefix_ds_metadata_columns(
@@ -133,15 +138,15 @@ class CategoryTypesTransformer(CustomTransformer):
 
         binary_encoder = OrdinalEncoder(
             handle_unknown="use_encoded_value",
-            unknown_value=config.UNKNOWN_VALUE_BINARY,
+            unknown_value=UNKNOWN_VALUE_BINARY,
         )
         ordinal_encoder = OrdinalEncoder(
             handle_unknown="use_encoded_value",
-            unknown_value=config.UNKNOWN_VALUE_ORDINAL,
+            unknown_value=UNKNOWN_VALUE_ORDINAL,
         )
         nominal_encoder = OrdinalEncoder(
             handle_unknown="use_encoded_value",
-            unknown_value=config.UNKNOWN_VALUE_NOMINAL,
+            unknown_value=UNKNOWN_VALUE_NOMINAL,
         )
 
         column_transformer = ColumnTransformer(
