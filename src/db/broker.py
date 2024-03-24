@@ -1,3 +1,6 @@
+import os
+
+from dotenv import load_dotenv
 from sqlalchemy import URL, create_engine
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.orm import Session, joinedload
@@ -8,6 +11,8 @@ from src.logger import logging
 
 
 class DbBroker:
+    engine: Engine
+
     def __init__(self):
         self.engine = self.create_engine()
         self.check_connection()
@@ -19,13 +24,15 @@ class DbBroker:
         return cls.instance
 
     def create_engine(self) -> Engine:
+        load_dotenv()
+
         url_object = URL.create(
             drivername="mysql+mysqlconnector",
-            username="root",
-            password="",
-            host="localhost",
-            port=3307,
-            database="polovni_automobili",
+            username=os.getenv("DB_USERNAME"),
+            password=os.getenv("DB_PASSWORD"),
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT")),  # type: ignore
+            database=os.getenv("DB_NAME"),
         )
         engine = create_engine(url_object)
         return engine
