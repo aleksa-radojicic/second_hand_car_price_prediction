@@ -10,21 +10,61 @@ data_filepath: "data/processed/" # the / at the end is necessary
 base_model_filepath: "models/base"
 
 models:
-  - name: "my_ridge_high"
-    type: ridge.pkl
-    hyperparameters:
-      alpha: 1
-  
-  - name: "my_ridge_low"
-    type: ridge.pkl
-    hyperparameters:
-      alpha: 0
+        # # "svr": SVR(),
+        # "ada": AdaBoostRegressor(),
+        # "xgb": xgb.XGBRegressor(),
 
-  - name: "my_ridge_medium"
-    type: ridge.pkl
-    hyperparameters:
-      alpha: 0.5
-metric: "mae"
+#  - name: "rf"
+#    type: rf.pkl
+
+#  - name: "dummy_median"
+#    type: dummy_median.pkl
+
+#  - name: "dummy_mean"
+#    type: dummy_mean.pkl
+
+#  - name: "ridge"
+#    type: ridge.pkl
+
+#  - name: "knn"
+#    type: knn.pkl
+
+
+#  - name: "gb"
+#    type: gb.pkl
+
+#  - name: "dt"
+#    type: dt.pkl   
+
+# Optimal rf
+ - name: "gb 0.95 default"
+   type: gb.pkl
+   hyperparameters:
+    loss: "quantile"
+    alpha: 0.95
+
+ - name: "gb 0.05 default"
+   type: gb.pkl
+   hyperparameters:
+    loss: "quantile"
+    alpha: 0.05
+
+# #Optimal gb
+#  - name: "gb opt"
+#    type: gb.pkl
+#    hyperparameters:
+#     learning_rate: 0.05
+#     max_depth: 12
+#     min_samples_split: 15
+#     n_estimators: 500
+#     criterion: "friedman_mse"
+#     loss: "quantile"
+#     alpha: 0.50
+#
+#  - name: "gb"
+#    type: gb.pkl
+
+metric: "r2"
 
 pipeline_step_names: ["ua_clean", "ma_clean", "col_dropper", "cat_handler", "nan_handler", "final_ct"]
 preprocessor_name: "preprocessor"
@@ -41,4 +81,4 @@ features_builder:
   final_ct:
     numerical_encoder: "passthrough"
     nominal_encoder: "ordinal"
-  verbose: 2
+  verbose: 0

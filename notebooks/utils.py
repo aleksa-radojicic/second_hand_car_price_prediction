@@ -131,14 +131,15 @@ def load_artifacts(stage: int) -> tuple[Dataset, Metadata]:
     return dataset, metadata
 
 
-def plot_anova_importance(
-    anova_scores: pd.DataFrame,
-    title: str = "ANOVA",
+def plot_mutual_info(
+    scores: pd.DataFrame,
+    title: str = "Mutual Info",
     figsize: tuple[int, int] = (20, 10),
+    color: Optional[str] = None
 ):
     fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
 
-    sns.barplot(x=anova_scores.scores, y=anova_scores.index.values, ax=ax)
+    sns.barplot(x=scores.scores, y=scores.index.values, ax=ax, color=color)
     plt.close()
     ax.bar_label(ax.containers[0])
 
@@ -148,7 +149,7 @@ def plot_anova_importance(
 
 
 def plot_correlation_heatmap(corr: pd.DataFrame):
-    _, ax = plt.subplots(figsize=(13, 7))
+    _, ax = plt.subplots(figsize=(12, 6))
 
     # Upper triangular heatmap of correlations with annotations
     sns.heatmap(corr, annot=True, mask=np.triu(corr), fmt=".2f", ax=ax)

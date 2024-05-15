@@ -111,11 +111,16 @@ class InitialCleaner(CustomTransformer):
         )
 
         # Remove cars that had price = 1
-        df = df[df[feature_name] != 1]
+        price_1_cars = df[df[feature_name] == 1]
+        df = df.drop(price_1_cars.index, axis=0)
 
         cars_price_less_than_100 = df.loc[df[feature_name] < 100, feature_name]
         # Remove cars that had price < 100
         df = df.drop(cars_price_less_than_100.index, axis=0)
+
+        # Remove cars that had price > 80_000
+        cars_price_bigger_than_80_000 = df[df[feature_name] > 80_000]
+        df = df.drop(cars_price_bigger_than_80_000.index, axis=0)
 
         return df, metadata
 
@@ -280,12 +285,14 @@ class InitialCleaner(CustomTransformer):
         df.rename(columns=dict(zip(other_columns, other_columns_fixed)), inplace=True)
 
         # Delete taxi cars and the column
-        df = df.loc[df.o_Taxi == False, :]
+        taxi_cars = df[df.o_Taxi == True]
+        df = df.drop(taxi_cars.index, axis=0)
         del df["o_Taxi"]
         other_columns_fixed.remove("o_Taxi")
 
         # Delete driving school cars and the column
-        df = df.loc[df.o_Vozilo_auto_škole == False, :]
+        car_school_vehicles = df[df.o_Vozilo_auto_škole == True]
+        df = df.drop(car_school_vehicles.index, axis=0)
         del df["o_Vozilo_auto_škole"]
         other_columns_fixed.remove("o_Vozilo_auto_škole")
 
@@ -316,8 +323,8 @@ class InitialCleaner(CustomTransformer):
         pd.set_option("mode.chained_assignment", None)
 
         # Delete new cars
-        new_cars_cond = df.gi_condition == "Novo vozilo"
-        df = df.loc[~new_cars_cond, :]
+        new_cars = df[df.gi_condition == "Novo vozilo"]
+        df = df.drop(new_cars.index, axis=0)
 
         # Delete 'gi_condition' feature
         del df["gi_condition"]
@@ -405,7 +412,10 @@ class InitialCleaner(CustomTransformer):
         df.ai_seats_no = df.ai_seats_no.str.rstrip("sedišta").str.strip()
 
         # Keep only cars that have steering wheele on the right side
-        df = df.loc[df.ai_steering_wheel_side.str.strip() != "Desni volan", :]
+        right_side_steering_wheel = df[
+            df.ai_steering_wheel_side.str.strip() == "Desni volan"
+        ]
+        df = df.drop(right_side_steering_wheel.index, axis=0)
 
         # Delete 'ai_steering_wheel_side' feature (no longer useful)
         del df["ai_steering_wheel_side"]
@@ -625,6 +635,26 @@ class InitialCleaner(CustomTransformer):
 
     @staticmethod
     @preprocess_init
+    def drop_features_correlated_with_label(
+        df: Dataset, metadata: Metadata
+    ) -> tuple[Dataset, Metadata]:
+        features_info = metadata.features_info
+
+        features_correlated_with_label = [
+            "ai_deposit",
+            "ai_installment_no",
+            "ai_installment_amount",
+            "ai_cash_payment",
+        ]
+        df.drop(columns=features_correlated_with_label, inplace=True)
+        # Update features info
+        features_info["numerical"] = [
+            f for f in features_info["numerical"] if f not in features_correlated_with_label
+        ]
+        return df, metadata
+
+    @staticmethod
+    @preprocess_init
     def clean_individual_columns(
         df: Dataset, metadata: Metadata
     ) -> tuple[Dataset, Metadata]:
@@ -654,5 +684,8 @@ class InitialCleaner(CustomTransformer):
             oldtimers_flag=self.oldtimers_flag,
             high_seats_cars_flag=self.high_seats_cars_flag,
             low_kilometerage_cars_flag=self.low_kilometerage_cars_flag,
+        )
+        df, metadata = InitialCleaner.drop_features_correlated_with_label(
+            df=df, metadata=metadata
         )
         return df, metadata

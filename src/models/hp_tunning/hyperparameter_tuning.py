@@ -2,10 +2,11 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 from omegaconf.errors import ConfigKeyError
 from omegaconf.omegaconf import DictConfig
+from sklearn.compose import TransformedTargetRegressor
 from sklearn.model_selection import GridSearchCV, KFold
-from sklearn.model_selection._search import BaseSearchCV
 from sklearn.pipeline import Pipeline
 
 from src.features.build_features import FeaturesBuilder
@@ -32,7 +33,7 @@ class HyperparametersTuner:
     cfg: HPTunerConfig
     metric: Metric
 
-    tuner: BaseSearchCV
+    tuner: GridSearchCV
 
     def __init__(self, cfg: HPTunerConfig, metric: Metric):
         self.cfg = cfg
@@ -40,10 +41,9 @@ class HyperparametersTuner:
 
     def _create_tuner(
         self, estimator: Pipeline, param_grid: dict[str, Any]
-    ) -> BaseSearchCV:
+    ) -> GridSearchCV:
         cv = KFold(self.cfg.cv_no, shuffle=True, random_state=self.cfg.random_seed)
-
-        tuner: BaseSearchCV = GridSearchCV(
+        tuner = GridSearchCV(
             estimator=estimator,
             param_grid=param_grid,
             cv=cv,
@@ -59,21 +59,31 @@ class HyperparametersTuner:
         self, estimator: Pipeline, param_grid: dict[str, Any], X: Dataset, y: Dataset
     ):
         log_message(f"Tuning hyperparameters {self.cfg.name}...", self.cfg.verbose)
-        tuner = self._create_tuner(estimator=estimator, param_grid=param_grid)
-        tuner.fit(X=X, y=y)
+        tuner = self._create_tuner(estimator=estimator, param_grid=param_grid)  # type: ignore
+
+        tuner.fit(X=X, y=y.values.ravel())
         log_message(
             f"Tuned hyperparameters {self.cfg.name} successfully.", self.cfg.verbose
         )
         self.tuner = tuner
 
 
-def get_base_model(model_type: str, model_dir: str) -> Model:
+def get_base_model(
+    model_type: str, model_dir: str, model_parameters: dict, random_state: int
+) -> Model:
     """Retrieves base model deserialized from the model directory."""
 
-    base_model: Any = deserialize_base_model(os.path.join(model_dir, model_type))
+    base_model = deserialize_base_model(os.path.join(model_dir, model_type))
 
     model_name: str = model_type.split(".", 1)[0]
-    model = Model(name=model_name, base_model=base_model)
+    base_model.set_params(**model_parameters, random_state=random_state)
+    # model = Model(name=model_name, base_model=base_model)
+    model = Model(
+        name=model_name,
+        base_model=TransformedTargetRegressor(
+            base_model, func=np.log1p, inverse_func=np.expm1
+        ),
+    )
     return model
 
 
@@ -84,6 +94,8 @@ class HPRunnerConfig:
 
     model_type: str
     metric: str
+
+    model_parameters: dict
 
     pipeline_step_names: list[str]
     preprocessor_name: str
@@ -141,9 +153,12 @@ class HPRunner:
         # Model param grid
         predictor_prefix = f"{self.cfg.predictor_name}{separator}"
         base_model_prefix = f"base_model{separator}"
-        model_prefix = f"{predictor_prefix}{base_model_prefix}"
+        model_prefix = f"{predictor_prefix}{base_model_prefix}regressor{separator}"
 
-        model_param_grid = add_prefix(prefix=model_prefix, **dict(hyperparams.model))
+        model_param_grid = add_prefix(
+            prefix=model_prefix,
+            **dict(hyperparams.model),
+        )
 
         param_grid = {**preprocessor_param_grid, **model_param_grid}
         return param_grid
@@ -159,6 +174,12 @@ class HPRunner:
             test_size=general_cfg.test_size,
             random_seed=general_cfg.random_seed,
         )
+        df_train_cv, df_test_cv = train_test_split_custom(
+            df=df_train,
+            test_size=general_cfg.test_size,
+            random_seed=general_cfg.random_seed,
+        )
+
         X_train = get_X_set(df_train, label_col=general_cfg.label_col)
         y_train = get_y_set(df_train, label_col=general_cfg.label_col)
 
@@ -170,7 +191,10 @@ class HPRunner:
             cfg.pipeline_step_names, metadata_processed
         )
         model = get_base_model(
-            model_type=cfg.model_type, model_dir=cfg.base_model_filepath
+            model_type=cfg.model_type,
+            model_dir=cfg.base_model_filepath,
+            model_parameters=cfg.model_parameters,
+            random_state=general_cfg.random_seed,
         )
 
         pipeline = Pipeline(
@@ -179,13 +203,12 @@ class HPRunner:
                 (cfg.predictor_name, model),
             ]
         )
-
         param_grid = self.create_param_grid()
 
-        hyperparameter_tuner: HyperparametersTuner = HyperparametersTuner(
-            cfg=hp_tuning_cfg, metric=metric
-        )
+        hyperparameter_tuner = HyperparametersTuner(cfg=hp_tuning_cfg, metric=metric)
         hyperparameter_tuner.start(
             estimator=pipeline, param_grid=param_grid, X=X_train, y=y_train
         )
         self.hyperparameter_tuner_ = hyperparameter_tuner
+        self.train_data_dimension = df_train_cv.shape
+        self.test_data_dimension = df_test_cv.shape

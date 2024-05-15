@@ -4,18 +4,18 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
 
-import xgboost as xgb
 from omegaconf.omegaconf import open_dict
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.dummy import DummyRegressor
-from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
+from sklearn.ensemble import (AdaBoostRegressor, GradientBoostingRegressor,
+                              RandomForestRegressor)
 from sklearn.linear_model import Ridge
 from sklearn.metrics import (make_scorer, mean_absolute_error, r2_score,
                              root_mean_squared_error)
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.tree import DecisionTreeRegressor
 
-from src.utils import pickle_object, unpickle_object
+from src.utils import json_object, pickle_object, unpickle_object
 
 
 @dataclass
@@ -109,12 +109,11 @@ def serialize_base_models(dir: str):
         "dummy_mean": DummyRegressor(strategy="mean"),
         "dummy_median": DummyRegressor(strategy="median"),
         "ridge": Ridge(),
-        # "svr": SVR(),
         "knn": KNeighborsRegressor(),
         "dt": DecisionTreeRegressor(),
         "ada": AdaBoostRegressor(),
         "rf": _rf_classifier,
-        "xgb": xgb.XGBRegressor(),
+        "gb": GradientBoostingRegressor(),
     }
 
     for name, model in base_models.items():
@@ -122,9 +121,22 @@ def serialize_base_models(dir: str):
         pickle_object(file_path, model)
 
 
-def deserialize_base_model(file_path: str) -> Any:
+def deserialize_base_model(file_path) -> Any:
     base_model: Any = unpickle_object(file_path)
     return base_model
+
+
+def save_estimator(estimator: BaseEstimator, filepath):
+    pickle_object(filepath, estimator)
+
+
+def save_estimator_details(details: dict[str, Any], filepath):
+    json_object(filepath, details)
+
+
+def load_estimator(filepath) -> BaseEstimator:
+    estimator = unpickle_object(filepath)
+    return estimator
 
 
 def main():

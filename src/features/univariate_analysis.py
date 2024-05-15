@@ -104,13 +104,14 @@ class UACleaner(CustomTransformer):
         features_info = metadata.features_info
         cols_nan_strategy = metadata.cols_nan_strategy
 
-        const_strat_cols_zero = ["listing_followers_no"]
+        const_strat_cols_zero = [
+            "listing_followers_no",
+            "gi_battery_capacity",
+            "ai_range_on_full_battery_km",
+        ]
 
         cols_scheduled_for_deletion = [
             "gi_battery_capacity",
-            "ai_deposit",
-            "ai_installment_no",
-            "ai_cash_payment",
             "ai_range_on_full_battery_km",
         ]
         median_strat_cols = [
@@ -120,7 +121,7 @@ class UACleaner(CustomTransformer):
         ]
 
         # Replace extreme value of 'gi_engine_capacity' with NaN (will be replaced with median)
-        df.loc[df.gi_engine_capacity > 0.2 * 1e8, "gi_engine_capacity"] = np.nan
+        df.loc[df.gi_engine_capacity > 5_000, "gi_engine_capacity"] = np.nan
 
         features_info["features_to_delete"].extend(cols_scheduled_for_deletion)
 

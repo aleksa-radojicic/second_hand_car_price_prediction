@@ -13,6 +13,7 @@ from sklearn.model_selection import train_test_split
 from typeguard import check_type
 
 from src.logger import logging
+import yaml
 
 
 @dataclass
@@ -172,35 +173,33 @@ def create_pipeline_metadata_list(
     return data
 
 
-def pickle_object(file_path, obj):
+def pickle_object(filepath, obj):
     try:
-        dir_path = os.path.dirname(file_path)
+        dir_path = os.path.dirname(filepath)
         os.makedirs(dir_path, exist_ok=True)
 
-        with open(file_path, "wb") as file_obj:
+        with open(filepath, "wb") as file_obj:
             pickle.dump(obj, file_obj)
 
     except Exception as e:
         raise e
 
 
-def unpickle_object(file_path) -> Any:
+def unpickle_object(filepath) -> Any:
     try:
-        with open(file_path, "rb") as file_obj:
+        with open(filepath, "rb") as file_obj:
             obj: Any = pickle.load(file_obj)
             return obj
     except Exception as e:
         raise e
 
 
-def json_object(file_path, obj):
-    import json
-
+def json_object(filepath, obj):
     try:
-        dir_path = os.path.dirname(file_path)
+        dir_path = os.path.dirname(filepath)
         os.makedirs(dir_path, exist_ok=True)
 
-        with open(file_path, "w") as file_obj:
+        with open(filepath, "w") as file_obj:
             json.dump(obj, file_obj, indent=1)
 
     except Exception as e:
@@ -263,6 +262,11 @@ def load_metadata(filepath: str) -> Metadata:
     return metadata
 
 
+def save_yaml(filepath, obj):
+    with open(filepath, "w") as file:
+        yaml.dump(obj, file, sort_keys=False)
+
+
 def load_yaml(filepath: str) -> Any:
     with open(filepath, "r") as file:
         content = yaml.safe_load(file)
@@ -271,7 +275,7 @@ def load_yaml(filepath: str) -> Any:
 
 def load_general_cfg() -> GeneralConfig:
     filepath = os.path.join(os.getcwd(), "config", "general.yaml")
-    general_cfg: GeneralConfig = GeneralConfig(**load_yaml(filepath))
+    general_cfg = GeneralConfig(**load_yaml(filepath))
     return general_cfg
 
 

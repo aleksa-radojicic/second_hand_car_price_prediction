@@ -2,7 +2,7 @@ from typing import Self
 
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.feature_selection import f_regression
+from sklearn.feature_selection import mutual_info_regression
 
 from src.logger import log_message
 from src.utils import (Dataset, Metadata, PipelineMetadata,
@@ -10,13 +10,13 @@ from src.utils import (Dataset, Metadata, PipelineMetadata,
 
 
 class CustomTransformer(TransformerMixin, BaseEstimator):
-    verbose: int
+    verbose: int = 0
 
     def set_pipe_meta(self, pipe_meta: PipelineMetadata) -> Self:
         self._pipe_meta = pipe_meta
         return self
 
-    def set_verbose(self, verbose: int = 0) -> Self:
+    def set_verbose(self, verbose: int) -> Self:
         self.verbose = verbose
         return self
 
@@ -60,25 +60,14 @@ class CustomTransformer(TransformerMixin, BaseEstimator):
     def set_output(*args, **kwargs):
         pass
 
-    # ! Needs to solve how to display pipeline without pipe_meta and verbose keys
-    # ! because this approach doesn't when tuning hyperparameters.
-    # def get_params(self, deep: bool = True) -> dict:
-    #     """Override default get_params method to exclude information about
-    #     pipe_meta and verbose. Used when displaying the transformer."""
-    #     result: dict = super().get_params(deep)
-    #     del result["pipe_meta"]
-    #     del result["verbose"]
-    #     return result
 
-
-def get_anova_importance_scores(X: pd.DataFrame, y: pd.DataFrame) -> pd.DataFrame:
-    f_stat, p_val = f_regression(X, y)
+def get_mutual_info_scores(X: pd.DataFrame, y: pd.DataFrame) -> pd.DataFrame:
+    scores = mutual_info_regression(X, y, random_state=1)
 
     # Fit the feature selector and sort the results by score
-    scores = pd.DataFrame(
-        {"scores": f_stat, "p_val": p_val}, index=X.columns
-    ).sort_values(by="scores", ascending=False)
-
-    scores.index.name = "anova_importance_scores"
+    scores = pd.DataFrame({"scores": scores}, index=X.columns).sort_values(
+        by="scores", ascending=False
+    )
+    scores.index.name = "mutual_info_scores"
 
     return scores

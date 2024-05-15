@@ -1,9 +1,11 @@
 import copy
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
+from sklearn.compose import TransformedTargetRegressor
 from sklearn.pipeline import Pipeline
 
 from src.features.build_features import FeaturesBuilder, FeaturesBuilderConfig
@@ -11,7 +13,8 @@ from src.logger import logging
 from src.models.models import (BaseModelConfig, Metric, Model,
                                deserialize_base_model, set_random_seed)
 from src.utils import (Dataset, GeneralConfig, get_X_set, get_y_set, load_data,
-                       load_general_cfg, train_test_split_custom)
+                       load_general_cfg, pickle_object,
+                       train_test_split_custom)
 
 
 def _get_model(estimator) -> Model:
@@ -99,9 +102,12 @@ class ModelsTrainerEvaluator:
 
         scores: dict[str, float] = {}
 
-        for model in self.models:
+        for i, model in enumerate(self.models):
             main_pipe = copy.deepcopy(pipeline)
             main_pipe.steps.append(("predictor", model))
+
+            if i == 0:
+                self.pipeline = main_pipe
 
             trainer = Trainer(main_pipe)
             trainer.start(X_train, y_train)
@@ -159,11 +165,17 @@ class TrainRunner:
             random_seed=general_cfg.random_seed,
         )
 
-        X_train: Dataset = get_X_set(df_train, label_col=general_cfg.label_col)
-        y_train: Dataset = get_y_set(df_train, label_col=general_cfg.label_col)
+        X_train = get_X_set(df_train, label_col=general_cfg.label_col)
+        y_train = get_y_set(df_train, label_col=general_cfg.label_col)
 
-        X_test: Dataset = get_X_set(df_test, label_col=general_cfg.label_col)
-        y_test: Dataset = get_y_set(df_test, label_col=general_cfg.label_col)
+        X_test = get_X_set(df_test, label_col=general_cfg.label_col)
+        y_test = get_y_set(df_test, label_col=general_cfg.label_col)
+
+        filepath_pickle = Path().absolute() / "data" / "processed"
+        pickle_object(filepath_pickle / "X_train_prep.pkl", X_train)
+        pickle_object(filepath_pickle / "X_test_prep.pkl", X_test)
+        pickle_object(filepath_pickle / "y_train_prep.pkl", y_train)
+        pickle_object(filepath_pickle / "y_test_prep.pkl", y_test)
 
         features_builder = FeaturesBuilder(cfg.features_builder)
         preprocess_pipe = features_builder.make_pipeline(
@@ -192,6 +204,13 @@ class TrainRunner:
             y_test=y_test,
         )
         self.scores_ = trainer_evaluator.scores_
+        self.models_ = models
+        self.X_train_ = X_train
+        self.y_train_ = y_train
+        self.X_test_ = X_test
+        self.y_test_ = y_test
+
+        self.pipeline = trainer_evaluator.pipeline
 
 
 def setup_models(model_configs: list[BaseModelConfig], model_dir: str) -> list[Model]:
@@ -201,13 +220,21 @@ def setup_models(model_configs: list[BaseModelConfig], model_dir: str) -> list[M
     models: list[Model] = []
 
     for model_cfg in model_configs:
-        base_model: Any = deserialize_base_model(
-            os.path.join(model_dir, model_cfg.type)
-        )
+        base_model = deserialize_base_model(os.path.join(model_dir, model_cfg.type))
         # Setup hyperparameters
-        base_model.set_params(**model_cfg.hyperparameters)
+        base_model.random_state = model_cfg.random_seed
+        try:
+            base_model.set_params(**model_cfg.hyperparameters)
+        except Exception as e:  # ConfigAttributeError
+            # When hyperparameters config is not set
+            pass
 
-        model = Model(name=model_cfg.name, base_model=base_model)
+        model = Model(
+            name=model_cfg.name,
+            base_model=TransformedTargetRegressor(
+                base_model, func=np.log1p, inverse_func=np.expm1
+            ),
+        )
         models.append(model)
 
     return models
