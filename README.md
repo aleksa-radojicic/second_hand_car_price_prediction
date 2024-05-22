@@ -1,57 +1,59 @@
-second_hand_car_price_prediction
-==============================
+# Second-Hand Car Prices Prediction using Machine Learning Algorithms
+This project was developed for my Bachelor's thesis at the [Faculty of Organizational Sciences](https://en.fon.bg.ac.rs/), Information Systems and Technologies. The goal was to predict prices of second-hand cars listed on the Serbian platform [*PolovniAutomobili*](https://www.polovniautomobili.com) using machine learning algorithms in Python.
 
-Predicting Second-Hand Car Price using Machine Learning Algorithms
+## Project Overview
+The objective of this project is to accurately predict prices of second-hand cars in euros using various ML models. The dataset consisted of 23,759 cars for training and 5,940 vehicles for testing. Coefficient of determination [R2] was the main metric used for models evaluation. Hyperparameters for Random Forest and Gradient Boosting Model were optimized using cross-validation. Furthermore, optimized GBMs were used to predict 90% prediction intervals.
 
-Project Organization
-------------
+GBM model performed best, achieving R2 of 0.94027 and MAE (mean absolute error) of 1230.770€ on test data. The prediction intervals contained the true values only 43.38% of the time.
+The 0.50 quantile GBM model identified the production year as the most important attribute, followed by engine power, kilometerage, model name and others.
 
-    ├── LICENSE
-    ├── Makefile           <- Makefile with commands like `make data` or `make train`
-    ├── README.md          <- The top-level README for developers using this project.
-    ├── data
-    │   ├── external       <- Data from third party sources.
-    │   ├── interim        <- Intermediate data that has been transformed.
-    │   ├── processed      <- The final, canonical data sets for modeling.
-    │   └── raw            <- The original, immutable data dump.
-    │
-    ├── docs               <- A default Sphinx project; see sphinx-doc.org for details
-    │
-    ├── models             <- Trained and serialized models, model predictions, or model summaries
-    │
-    ├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-    │                         the creator's initials, and a short `-` delimited description, e.g.
-    │                         `1.0-jqp-initial-data-exploration`.
-    │
-    ├── references         <- Data dictionaries, manuals, and all other explanatory materials.
-    │
-    ├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-    │   └── figures        <- Generated graphics and figures to be used in reporting
-    │
-    ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-    │                         generated with `pip freeze > requirements.txt`
-    │
-    ├── setup.py           <- makes project pip installable (pip install -e .) so src can be imported
-    ├── src                <- Source code for use in this project.
-    │   ├── __init__.py    <- Makes src a Python module
-    │   │
-    │   ├── data           <- Scripts to download or generate data
-    │   │   └── make_dataset.py
-    │   │
-    │   ├── features       <- Scripts to turn raw data into features for modeling
-    │   │   └── build_features.py
-    │   │
-    │   ├── models         <- Scripts to train models and then use trained models to make
-    │   │   │                 predictions
-    │   │   ├── predict_model.py
-    │   │   └── train_model.py
-    │   │
-    │   └── visualization  <- Scripts to create exploratory and results oriented visualizations
-    │       └── visualize.py
-    │
-    └── tox.ini            <- tox file with settings for running tox; see tox.readthedocs.io
+## Data Acquisition
+Vehicles were scraped from the website [*PolovniAutomobili*](www.polovniautomobili.rs) using BeautifulSoup and Tor. SQLAlchemy and MySQL were used to store the data, resulting in a total of 30,788 rows and 50 columns.
+
+## Technologies Used
+
+- **Programming Language**: Python 3.11.8;
+- **Database**: MySQL, SQLAlchemy;
+- **Web Scraping**: BeautifulSoup, [Tor](https://www.torproject.org/), [Stem](https://stem.torproject.org/), Selenium, [tbselenium](https://pypi.org/project/tbselenium/);
+- **Data Analysis**: Pandas, NumPy;
+- **Visualization**: Matplotlib, Seaborn;
+- **Machine Learning**: scikit-learn;
+- **Configuration**: PyYAML, [Hydra](https://hydra.cc).
 
 
---------
+## Data Preprocessing
+The Initial Cleaner component processed each column and removed outliers. The resulting data was passed then into a Preprocessor Pipeline, which prepared train and test set separately for modelling. Price (output column) was log-transformed to further improve model performance.
 
-<p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
+## Results
+Below are the tables of performance metrics for the optimized models on both the training and test sets.
+
+### Train Set Metrics
+
+| Model | RMSE      | MAE       | R2       |
+|-------|-----------|-----------|----------|
+| RF    | **1191.538**  | **499.685**   | **0.98717**  |
+| GBM 0.50  | 1579.571  | 547.138   | 0.97746  |
+| GBM 0.05   | 2470.072  | 974.428   | 0.94488  |
+| GBM 0.95   | 1435.852  | 818.770   | 0.98137  |
+
+### Test Set Metrics
+
+| Model | RMSE      | MAE       | R2       |
+|-------|-----------|-----------|----------|
+| RF    | 2726.884  | 1311.138  | 0.93259  |
+| GBM 0.50   | **2566.822**  | **1230.770**  | **0.94027**  |
+| GBM 0.05   | 3449.857  | 1715.0888 | 0.89211  |
+| GBM 0.95   | 2879.736  | 1624.346  | 0.92482  |
+
+Additionaly, there is a comparison of R2 between the default and optimized ML models, along with a plot depicting true versus predicted values on the test set (GBM), including prediction intervals.
+
+<img src="https://gcdnb.pbrd.co/images/GfAsJvMhHlxU.png?o=1" width="500" height="350"/>
+
+*Comparing Default and Optimized Models on Test Set using R2 Metric (GBM)*
+
+<br>
+
+<img src="https://gcdnb.pbrd.co/images/SmnOabEVmNEw.png?o=1" width="500" height="350"/>
+
+## Acknowledgements
+I really want to thank my mentors [Sandro Radovanović](https://rs.linkedin.com/in/sandroradovanovic) and [Andrija Petrović](https://rs.linkedin.com/in/andrija-petrovic-20299ba2) for their guidance and support throughout this project.
