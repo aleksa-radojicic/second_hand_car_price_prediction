@@ -47,13 +47,13 @@ Below are the tables of performance metrics for the optimized models on both the
 
 Additionaly, there is a comparison of R2 between the default and optimized ML models, along with a plot depicting true versus predicted values on the test set (GBM), including prediction intervals.
 
-<img src="https://gcdnb.pbrd.co/images/GfAsJvMhHlxU.png?o=1" width="500" height="350"/>
+<img src="https://iili.io/2tAyOnR.png" width="500" height="350"/>
 
 *Comparing Default and Optimized Models on Test Set using R2 Metric (GBM)*
 
 <br>
 
-<img src="https://gcdnb.pbrd.co/images/SmnOabEVmNEw.png?o=1" width="500" height="350"/>
+<img src="https://iili.io/2tApFzx.png" width="500" height="350"/>
 
 ## Acknowledgements
 I really want to thank my mentors [Sandro Radovanović](https://rs.linkedin.com/in/sandroradovanovic) and [Andrija Petrović](https://rs.linkedin.com/in/andrija-petrovic-20299ba2) for their guidance and support throughout this project.
