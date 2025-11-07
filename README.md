@@ -8,7 +8,7 @@ GBM model performed best, achieving R2 of 0.94027 and MAE (mean absolute error) 
 The 0.50 quantile GBM model identified the production year as the most important attribute, followed by engine power, kilometerage, model name and others.
 
 ## Data Acquisition
-Vehicles were scraped from the website [*PolovniAutomobili*](www.polovniautomobili.rs) using BeautifulSoup and Tor. SQLAlchemy and MySQL were used to store the data, resulting in a total of 30,788 rows and 50 columns.
+Vehicles were scraped from the website [*PolovniAutomobili*](https://www.polovniautomobili.rs) using BeautifulSoup and Tor. SQLAlchemy and MySQL were used to store the data, resulting in a total of 30,788 rows and 50 columns.
 
 ## Technologies Used
 
@@ -54,6 +54,11 @@ Additionaly, there is a comparison of R2 between the default and optimized ML mo
 <br>
 
 <img src="https://iili.io/2tApFzx.png" width="500" height="350"/>
+
+## Bachelor’s Thesis and Presentation
+Both the thesis and presentation are available as PDFs in this repository. Files:
+- [Bachelor's Thesis (Serbian)](https://raw.githubusercontent.com/aleksa-radojicic/second_hand_car_price_prediction/refs/heads/main/Aleksa_Radojičić_20240165_Thesis.pdf)
+- [Presentation (Serbian)](https://raw.githubusercontent.com/aleksa-radojicic/second_hand_car_price_prediction/refs/heads/main/Aleksa_Radojičić_20240165_Presentation.pdf)
 
 ## Acknowledgements
 I really want to thank my mentors [Sandro Radovanović](https://rs.linkedin.com/in/sandroradovanovic) and [Andrija Petrović](https://rs.linkedin.com/in/andrija-petrovic-20299ba2) for their guidance and support throughout this project.
